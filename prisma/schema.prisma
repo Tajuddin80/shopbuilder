@@ -1,0 +1,137 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Shopify session storage (required by @shopify/shopify-app-*)
+model Session {
+  id          String    @id
+  shop        String
+  state       String
+  isOnline    Boolean   @default(false)
+  scope       String?
+  expires     DateTime?
+  accessToken String
+  userId      BigInt?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// One record per installed shop
+model Shop {
+  id            String       @id @default(cuid())
+  shopDomain    String       @unique // e.g. mystore.myshopify.com
+  accessToken   String
+  plan          Plan         @default(FREE)
+  planExpiresAt DateTime?
+  billingId     String? // Shopify subscription gid
+  installedAt   DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  pages         Page[]
+  templates     Template[]
+  globalStyles  GlobalStyles?
+}
+
+enum Plan {
+  FREE
+  PRO
+  AGENCY
+}
+
+// A page created by the merchant
+model Page {
+  id             String        @id @default(cuid())
+  shopId         String
+  shop           Shop          @relation(fields: [shopId], references: [id])
+  title          String
+  handle         String // URL handle, e.g. "summer-sale"
+  pageType       PageType      @default(LANDING)
+  status         PageStatus    @default(DRAFT)
+  content        Json // Full page JSON schema (sections + elements)
+  seoTitle       String?
+  seoDescription String?
+  publishedAt    DateTime?
+  themePageId    String? // Shopify page ID (for Online Store pages)
+  templateId     String? // If created from a template
+  versions       PageVersion[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([shopId, handle])
+}
+
+enum PageType {
+  LANDING
+  PRODUCT
+  COLLECTION
+  BLOG
+  HOMEPAGE
+  CUSTOM
+}
+
+enum PageStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+// Version history for undo/restore
+model PageVersion {
+  id        String   @id @default(cuid())
+  pageId    String
+  page      Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  content   Json // Snapshot of page content at this version
+  label     String? // Optional label like "Before hero redesign"
+  createdAt DateTime @default(now())
+
+  @@index([pageId, createdAt])
+}
+
+// Pre-built section/page templates
+model Template {
+  id          String           @id @default(cuid())
+  shopId      String? // null = global (system) template
+  shop        Shop?            @relation(fields: [shopId], references: [id])
+  name        String
+  description String?
+  category    TemplateCategory
+  thumbnail   String? // URL to preview image
+  content     Json // Page JSON schema
+  isPublic    Boolean          @default(false)
+  usageCount  Int              @default(0)
+  createdAt   DateTime         @default(now())
+}
+
+enum TemplateCategory {
+  HERO
+  FEATURES
+  TESTIMONIALS
+  PRICING
+  FAQ
+  CONTACT
+  PRODUCT_SHOWCASE
+  COLLECTION_GRID
+  BLOG
+  LANDING_PAGE
+  FULL_PAGE
+}
+
+// Shop-wide global style settings
+model GlobalStyles {
+  id             String   @id @default(cuid())
+  shopId         String   @unique
+  shop           Shop     @relation(fields: [shopId], references: [id])
+  primaryColor   String   @default("#000000")
+  secondaryColor String   @default("#ffffff")
+  accentColor    String   @default("#0070f3")
+  headingFont    String   @default("sans-serif")
+  bodyFont       String   @default("sans-serif")
+  baseFontSize   Int      @default(16)
+  containerWidth Int      @default(1200)
+  customCss      String? // Global CSS injected into all pages
+  updatedAt      DateTime @updatedAt
+}
