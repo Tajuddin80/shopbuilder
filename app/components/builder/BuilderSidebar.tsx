@@ -3,7 +3,14 @@ import { ELEMENT_CATEGORIES, ELEMENT_REGISTRY } from "~/lib/elementRegistry";
 import { useBuilderStore } from "~/store/builderStore";
 
 export function BuilderSidebar() {
-  const { sidebarTab, setSidebarTab, addSection } = useBuilderStore();
+  const {
+    sidebarTab,
+    setSidebarTab,
+    addSection,
+    addElement,
+    pageContent,
+    selectedSectionId,
+  } = useBuilderStore();
 
   const tabs = [
     { id: "elements", content: "Elements", panelID: "elements-panel" },
@@ -12,6 +19,27 @@ export function BuilderSidebar() {
   ] as const;
 
   const selected = tabs.findIndex((t) => t.id === sidebarTab);
+
+  function handleAddElement(entry: (typeof ELEMENT_REGISTRY)[number]) {
+    // Prefer selected section, then first section; auto-create one if empty canvas.
+    let targetSection =
+      pageContent.sections.find((s) => s.id === selectedSectionId) ?? pageContent.sections[0];
+
+    if (!targetSection) {
+      addSection({ name: "Section" });
+      targetSection = useBuilderStore.getState().pageContent.sections[0];
+    }
+    if (!targetSection) return;
+
+    const targetColumn = targetSection.columns[0];
+    if (!targetColumn) return;
+
+    addElement(targetSection.id, targetColumn.id, {
+      type: entry.type,
+      name: entry.label,
+      content: entry.defaultContent as any,
+    });
+  }
 
   return (
     <div style={{ width: 320, borderRight: "1px solid #e1e3e5", height: "100%", overflow: "auto" }}>
@@ -45,6 +73,7 @@ export function BuilderSidebar() {
                 {ELEMENT_REGISTRY.filter((e) => e.category === cat.key).map((el) => (
                   <div
                     key={el.type}
+                    onClick={() => handleAddElement(el)}
                     style={{
                       border: "1px solid #e1e3e5",
                       borderRadius: 8,
@@ -52,6 +81,7 @@ export function BuilderSidebar() {
                       fontSize: 13,
                       color: "#202223",
                       background: "#fff",
+                      cursor: "pointer",
                     }}
                   >
                     <div style={{ fontWeight: 600 }}>{el.label}</div>

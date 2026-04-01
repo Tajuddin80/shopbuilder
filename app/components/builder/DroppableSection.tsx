@@ -8,7 +8,7 @@ export function DroppableSection({ section }: { section: Section }) {
     id: section.id,
     data: { type: "section", sectionId: section.id },
   });
-  const { deleteSection, selectElement } = useBuilderStore();
+  const { deleteSection, selectElement, selectedElementId } = useBuilderStore();
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -81,11 +81,17 @@ export function DroppableSection({ section }: { section: Section }) {
                 col.elements.map((el) => (
                   <div
                     key={el.id}
+                    onClick={() => selectElement(el.id, section.id)}
                     style={{
                       padding: 10,
-                      border: "1px solid #e1e3e5",
+                      border:
+                        selectedElementId === el.id
+                          ? "1px solid #2c6ecb"
+                          : "1px solid #e1e3e5",
                       borderRadius: 8,
                       marginBottom: 8,
+                      cursor: "pointer",
+                      background: selectedElementId === el.id ? "#f4f9ff" : "#fff",
                     }}
                   >
                     {(el as any).name || (el as any).type}
