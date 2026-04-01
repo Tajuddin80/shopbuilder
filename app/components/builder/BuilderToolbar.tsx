@@ -1,4 +1,4 @@
-import { Button, ButtonGroup, TopBar } from "@shopify/polaris";
+import { Button, ButtonGroup } from "@shopify/polaris";
 import { useFetcher } from "react-router";
 import { useBuilderStore } from "~/store/builderStore";
 
@@ -19,12 +19,6 @@ export function BuilderToolbar({ pageId }: { pageId?: string }) {
 
   return (
     <div style={{ borderBottom: "1px solid #e1e3e5" }}>
-      <TopBar
-        showNavigationToggle={false}
-        userMenu={undefined as any}
-        searchField={undefined as any}
-        secondaryMenu={undefined as any}
-      />
       <div style={{ padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <ButtonGroup>
           <Button pressed={activeBreakpoint === "desktop"} onClick={() => setBreakpoint("desktop")}>
