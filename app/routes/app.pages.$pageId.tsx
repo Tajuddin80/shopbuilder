@@ -5,15 +5,16 @@ import { db } from "~/lib/db.server";
 import { useEffect } from "react";
 import { useBuilderStore } from "~/store/builderStore";
 import { BuilderToolbar } from "~/components/builder/BuilderToolbar";
-import { BuilderSidebar } from "~/components/builder/BuilderSidebar";
-import { BuilderCanvas } from "~/components/builder/BuilderCanvas";
+import { BuilderWorkspace } from "~/components/builder/BuilderWorkspace";
 import { SettingsPanel } from "~/components/builder/SettingsPanel";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const { session } = await authenticate.admin(request);
   const { pageId } = params as { pageId: string };
 
-  const shop = await db.shop.findUnique({ where: { shopDomain: session.shop } });
+  const shop = await db.shop.findUnique({
+    where: { shopDomain: session.shop },
+  });
   if (!shop) throw new Response("Shop not found", { status: 404 });
 
   if (pageId === "new") {
@@ -37,14 +38,22 @@ export default function PageEditor() {
   }, [page?.id, setPageContent]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 56px)", overflow: "hidden" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "calc(100vh - 56px)",
+        overflow: "hidden",
+        minHeight: 0,
+      }}
+    >
       <BuilderToolbar pageId={page?.id} />
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        <BuilderSidebar />
-        <BuilderCanvas />
+      <div
+        style={{ display: "flex", flex: 1, overflow: "hidden", minHeight: 0, minWidth: 0 }}
+      >
+        <BuilderWorkspace />
         <SettingsPanel />
       </div>
     </div>
   );
 }
-

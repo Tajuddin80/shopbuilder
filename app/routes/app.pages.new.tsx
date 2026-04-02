@@ -1,18 +1,40 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { Form, useActionData, useNavigate } from "react-router";
+import { Form, useActionData, useLoaderData, useNavigate } from "react-router";
 import { authenticate } from "~/lib/shopify.server";
 import { db } from "~/lib/db.server";
 import { Button, Card, FormLayout, Layout, Page, TextField } from "@shopify/polaris";
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  await authenticate.admin(request);
-  return null;
+  const { session } = await authenticate.admin(request);
+  const url = new URL(request.url);
+  const templateId = url.searchParams.get("templateId");
+
+  if (!templateId) {
+    return { template: null };
+  }
+
+  const shop = await db.shop.findUnique({
+    where: { shopDomain: session.shop },
+  });
+
+  const template = shop
+    ? await db.template.findFirst({
+        where: {
+          id: templateId,
+          OR: [{ isPublic: true }, { shopId: shop.id }],
+        },
+        select: { id: true, name: true, category: true },
+      })
+    : null;
+
+  return { template };
 }
 
 export async function action({ request }: ActionFunctionArgs) {
   const { session } = await authenticate.admin(request);
   const body = await request.formData();
   const title = String(body.get("title") || "Untitled page");
+  const templateId = String(body.get("templateId") || "");
   const handle = String(body.get("handle") || "")
     .trim()
     .toLowerCase()
@@ -25,6 +47,15 @@ export async function action({ request }: ActionFunctionArgs) {
   const shop = await db.shop.findUnique({ where: { shopDomain: session.shop } });
   if (!shop) return { error: "Shop not found. Reinstall the app." };
 
+  const template = templateId
+    ? await db.template.findFirst({
+        where: {
+          id: templateId,
+          OR: [{ isPublic: true }, { shopId: shop.id }],
+        },
+      })
+    : null;
+
   const page = await db.page.create({
     data: {
       shopId: shop.id,
@@ -32,7 +63,7 @@ export async function action({ request }: ActionFunctionArgs) {
       handle,
       pageType: "LANDING",
       status: "DRAFT",
-      content: {
+      content: (template?.content as any) || {
         version: "1.0",
         globalStyles: {
           backgroundColor: "#ffffff",
@@ -42,6 +73,7 @@ export async function action({ request }: ActionFunctionArgs) {
         },
         sections: [],
       },
+      templateId: template?.id || null,
     },
   });
 
@@ -49,6 +81,7 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function NewPage() {
+  const { template } = useLoaderData() as Awaited<ReturnType<typeof loader>>;
   const actionData = useActionData() as any;
   const navigate = useNavigate();
 
@@ -63,6 +96,14 @@ export default function NewPage() {
           <Card>
             <Form method="post">
               <FormLayout>
+                {template && (
+                  <div style={{ color: "#475569", fontSize: 13, lineHeight: 1.6 }}>
+                    Creating a page from the template <strong>{template.name}</strong>.
+                  </div>
+                )}
+                {template ? (
+                  <input type="hidden" name="templateId" value={template.id} />
+                ) : null}
                 <TextField label="Title" name="title" autoComplete="off" />
                 <TextField label="Handle" name="handle" helpText="e.g. summer-sale" autoComplete="off" />
                 {actionData?.error && (

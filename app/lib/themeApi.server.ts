@@ -14,23 +14,18 @@ export async function writeThemePage(
     themePageId?: string | null;
   },
 ) {
-  const themeResponse = await admin.rest.resources.Theme.all({ status: "main" });
-  const activeTheme = themeResponse.data[0];
-  if (!activeTheme) throw new Error("No active theme found");
+  const activeTheme = await getActiveTheme(admin);
   const themeId = activeTheme.id;
 
-  await admin.rest.resources.Asset.save({
-    theme_id: themeId,
-    key: `assets/pb-page-${handle}.css`,
-    value: cssContent,
-  });
+  await saveThemeAsset(admin, themeId, `assets/pb-page-${handle}.css`, cssContent);
 
   const liquidWithStyle = `<link rel="stylesheet" href="{{ 'pb-page-${handle}.css' | asset_url }}">\n${liquidContent}`;
-  await admin.rest.resources.Asset.save({
-    theme_id: themeId,
-    key: `templates/page.pb-${handle}.liquid`,
-    value: `{% layout 'theme' %}\n${liquidWithStyle}`,
-  });
+  await saveThemeAsset(
+    admin,
+    themeId,
+    `templates/page.pb-${handle}.liquid`,
+    `{% layout 'theme' %}\n${liquidWithStyle}`,
+  );
 
   let page;
   if (themePageId) {
@@ -54,9 +49,49 @@ export async function writeThemePage(
 }
 
 export async function getThemeTemplates(admin: any) {
-  const themeResponse = await admin.rest.resources.Theme.all({ status: "main" });
-  const activeTheme = themeResponse.data[0];
+  const activeTheme = await getActiveTheme(admin);
   const assets = await admin.rest.resources.Asset.all({ theme_id: activeTheme.id });
   return assets.data.filter((a: any) => a.key.startsWith("templates/"));
+}
+
+export async function getThemes(admin: any) {
+  const themeResponse = await admin.rest.resources.Theme.all();
+  return themeResponse.data ?? [];
+}
+
+export async function getActiveTheme(admin: any) {
+  const themeResponse = await admin.rest.resources.Theme.all({ status: "main" });
+  const activeTheme = themeResponse.data[0];
+  if (!activeTheme) throw new Error("No active theme found");
+  return activeTheme;
+}
+
+export async function saveThemeAsset(
+  admin: any,
+  themeId: string | number,
+  key: string,
+  value: string,
+) {
+  await admin.rest.resources.Asset.save({
+    theme_id: themeId,
+    key,
+    value,
+  });
+}
+
+export async function saveThemeAssetToAllThemes(
+  admin: any,
+  key: string,
+  value: string,
+) {
+  const themes = await getThemes(admin);
+
+  await Promise.all(
+    themes.map((theme: any) =>
+      saveThemeAsset(admin, theme.id, key, value),
+    ),
+  );
+
+  return themes;
 }
 

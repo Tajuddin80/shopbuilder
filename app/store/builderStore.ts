@@ -1,7 +1,12 @@
 import { create } from "zustand";
 import { temporal } from "zundo";
-import type { PageContent, Section, Element, Column } from "~/lib/pageSchema";
 import { nanoid } from "nanoid";
+import type { PageContent, Section, Element } from "~/lib/pageSchema";
+import {
+  createDefaultElement,
+  createDefaultSection,
+  createDefaultColumn,
+} from "~/lib/builderDefaults";
 
 interface BuilderState {
   // Page data
@@ -28,6 +33,7 @@ interface BuilderState {
   isPublishing: boolean;
   hasUnsavedChanges: boolean;
   previewMode: boolean;
+  libraryRefreshNonce: number;
 
   // Actions — page
   setPageContent: (content: PageContent) => void;
@@ -37,6 +43,9 @@ interface BuilderState {
   addSection: (section: Partial<Section>, atIndex?: number) => void;
   duplicateSection: (sectionId: string) => void;
   deleteSection: (sectionId: string) => void;
+  updateSection: (sectionId: string, updates: Partial<Section>) => void;
+  setSectionColumns: (sectionId: string, widths: number[]) => void;
+  reverseSectionColumns: (sectionId: string) => void;
   updateSectionSettings: (
     sectionId: string,
     settings: Partial<Section["settings"]>,
@@ -59,6 +68,7 @@ interface BuilderState {
     elementId: string,
     fromSectionId: string,
     fromColumnId: string,
+    fromIndex: number,
     toSectionId: string,
     toColumnId: string,
     toIndex: number,
@@ -75,6 +85,7 @@ interface BuilderState {
   setIsSaving: (saving: boolean) => void;
   setIsPublishing: (publishing: boolean) => void;
   setHasUnsavedChanges: (changed: boolean) => void;
+  bumpLibraryRefreshNonce: () => void;
 }
 
 export const useBuilderStore = create<BuilderState>()(
@@ -105,8 +116,10 @@ export const useBuilderStore = create<BuilderState>()(
       isPublishing: false,
       hasUnsavedChanges: false,
       previewMode: false,
+      libraryRefreshNonce: 0,
 
-      setPageContent: (content) => set({ pageContent: content, hasUnsavedChanges: false }),
+      setPageContent: (content) =>
+        set({ pageContent: content, hasUnsavedChanges: false }),
 
       updateGlobalStyles: (styles) =>
         set((state) => ({
@@ -119,32 +132,21 @@ export const useBuilderStore = create<BuilderState>()(
 
       addSection: (partial, atIndex) =>
         set((state) => {
-          const newSection: Section = {
-            id: nanoid(),
-            type: "section",
-            name: "New Section",
-            visible: true,
-            locked: false,
-            settings: defaultSectionSettings(),
-            columns: [
-              {
-                id: nanoid(),
-                width: { desktop: 100, tablet: 100, mobile: 100 },
-                elements: [],
-                settings: defaultColumnSettings(),
-              },
-            ],
-            ...partial,
-          };
+          const newSection = createDefaultSection(partial);
           const sections = [...state.pageContent.sections];
           const idx = atIndex !== undefined ? atIndex : sections.length;
           sections.splice(idx, 0, newSection);
-          return { pageContent: { ...state.pageContent, sections }, hasUnsavedChanges: true };
+          return {
+            pageContent: { ...state.pageContent, sections },
+            hasUnsavedChanges: true,
+          };
         }),
 
       duplicateSection: (sectionId) =>
         set((state) => {
-          const idx = state.pageContent.sections.findIndex((s) => s.id === sectionId);
+          const idx = state.pageContent.sections.findIndex(
+            (s) => s.id === sectionId,
+          );
           if (idx < 0) return state;
           const original = state.pageContent.sections[idx];
           const clone: Section = {
@@ -154,22 +156,107 @@ export const useBuilderStore = create<BuilderState>()(
             columns: original.columns.map((c) => ({
               ...c,
               id: nanoid(),
-              elements: c.elements.map((e) => ({ ...(e as any), id: nanoid() })),
+              elements: c.elements.map((e) => ({
+                ...(e as any),
+                id: nanoid(),
+              })),
             })),
           };
           const sections = [...state.pageContent.sections];
           sections.splice(idx + 1, 0, clone);
-          return { pageContent: { ...state.pageContent, sections }, hasUnsavedChanges: true };
+          return {
+            pageContent: { ...state.pageContent, sections },
+            hasUnsavedChanges: true,
+          };
         }),
 
       deleteSection: (sectionId) =>
         set((state) => ({
           pageContent: {
             ...state.pageContent,
-            sections: state.pageContent.sections.filter((s) => s.id !== sectionId),
+            sections: state.pageContent.sections.filter(
+              (s) => s.id !== sectionId,
+            ),
           },
           selectedSectionId: null,
           selectedElementId: null,
+          hasUnsavedChanges: true,
+        })),
+
+      updateSection: (sectionId, updates) =>
+        set((state) => ({
+          pageContent: {
+            ...state.pageContent,
+            sections: state.pageContent.sections.map((section) =>
+              section.id === sectionId
+                ? {
+                    ...section,
+                    ...updates,
+                    settings: updates.settings
+                      ? { ...section.settings, ...updates.settings }
+                      : section.settings,
+                  }
+                : section,
+            ),
+          },
+          hasUnsavedChanges: true,
+        })),
+
+      setSectionColumns: (sectionId, widths) =>
+        set((state) => ({
+          pageContent: {
+            ...state.pageContent,
+            sections: state.pageContent.sections.map((section) => {
+              if (section.id !== sectionId) return section;
+
+              const nextColumns = widths.map((width, index) => {
+                const existingColumn = section.columns[index];
+                if (existingColumn) {
+                  return {
+                    ...existingColumn,
+                    width: {
+                      desktop: width,
+                      tablet: 100,
+                      mobile: 100,
+                    },
+                  };
+                }
+
+                return createDefaultColumn({
+                  width: { desktop: width, tablet: 100, mobile: 100 },
+                });
+              });
+
+              if (section.columns.length > widths.length) {
+                const overflowElements = section.columns
+                  .slice(widths.length)
+                  .flatMap((column) => column.elements);
+
+                if (overflowElements.length > 0) {
+                  const lastColumn = nextColumns[nextColumns.length - 1];
+                  lastColumn.elements = [
+                    ...lastColumn.elements,
+                    ...overflowElements,
+                  ];
+                }
+              }
+
+              return { ...section, columns: nextColumns };
+            }),
+          },
+          hasUnsavedChanges: true,
+        })),
+
+      reverseSectionColumns: (sectionId) =>
+        set((state) => ({
+          pageContent: {
+            ...state.pageContent,
+            sections: state.pageContent.sections.map((section) =>
+              section.id === sectionId
+                ? { ...section, columns: [...section.columns].reverse() }
+                : section,
+            ),
+          },
           hasUnsavedChanges: true,
         })),
 
@@ -178,7 +265,9 @@ export const useBuilderStore = create<BuilderState>()(
           pageContent: {
             ...state.pageContent,
             sections: state.pageContent.sections.map((s) =>
-              s.id === sectionId ? { ...s, settings: { ...s.settings, ...settings } } : s,
+              s.id === sectionId
+                ? { ...s, settings: { ...s.settings, ...settings } }
+                : s,
             ),
           },
           hasUnsavedChanges: true,
@@ -186,26 +275,40 @@ export const useBuilderStore = create<BuilderState>()(
 
       moveSectionUp: (sectionId) =>
         set((state) => {
-          const idx = state.pageContent.sections.findIndex((s) => s.id === sectionId);
+          const idx = state.pageContent.sections.findIndex(
+            (s) => s.id === sectionId,
+          );
           if (idx <= 0) return state;
           const sections = [...state.pageContent.sections];
           const [s] = sections.splice(idx, 1);
           sections.splice(idx - 1, 0, s);
-          return { pageContent: { ...state.pageContent, sections }, hasUnsavedChanges: true };
+          return {
+            pageContent: { ...state.pageContent, sections },
+            hasUnsavedChanges: true,
+          };
         }),
 
       moveSectionDown: (sectionId) =>
         set((state) => {
-          const idx = state.pageContent.sections.findIndex((s) => s.id === sectionId);
-          if (idx < 0 || idx >= state.pageContent.sections.length - 1) return state;
+          const idx = state.pageContent.sections.findIndex(
+            (s) => s.id === sectionId,
+          );
+          if (idx < 0 || idx >= state.pageContent.sections.length - 1)
+            return state;
           const sections = [...state.pageContent.sections];
           const [s] = sections.splice(idx, 1);
           sections.splice(idx + 1, 0, s);
-          return { pageContent: { ...state.pageContent, sections }, hasUnsavedChanges: true };
+          return {
+            pageContent: { ...state.pageContent, sections },
+            hasUnsavedChanges: true,
+          };
         }),
 
       setSections: (sections) =>
-        set((state) => ({ pageContent: { ...state.pageContent, sections }, hasUnsavedChanges: true })),
+        set((state) => ({
+          pageContent: { ...state.pageContent, sections },
+          hasUnsavedChanges: true,
+        })),
 
       addElement: (sectionId, columnId, partial, atIndex) =>
         set((state) => {
@@ -221,7 +324,8 @@ export const useBuilderStore = create<BuilderState>()(
                       columns: s.columns.map((col) => {
                         if (col.id !== columnId) return col;
                         const elements = [...col.elements];
-                        const idx = atIndex !== undefined ? atIndex : elements.length;
+                        const idx =
+                          atIndex !== undefined ? atIndex : elements.length;
                         elements.splice(idx, 0, newElement as Element);
                         return { ...col, elements };
                       }),
@@ -243,7 +347,11 @@ export const useBuilderStore = create<BuilderState>()(
               const idx = col.elements.findIndex((el) => el.id === elementId);
               if (idx < 0) return col;
               const original = col.elements[idx] as any;
-              duplicated = { ...original, id: nanoid(), name: `${original.name} (Copy)` } as Element;
+              duplicated = {
+                ...original,
+                id: nanoid(),
+                name: `${original.name} (Copy)`,
+              } as Element;
               const elements = [...col.elements];
               elements.splice(idx + 1, 0, duplicated);
               return { ...col, elements };
@@ -282,14 +390,24 @@ export const useBuilderStore = create<BuilderState>()(
               ...s,
               columns: s.columns.map((col) => ({
                 ...col,
-                elements: col.elements.map((el) => (el.id === elementId ? deepMerge(el, updates) : el)),
+                elements: col.elements.map((el) =>
+                  el.id === elementId ? deepMerge(el, updates) : el,
+                ),
               })),
             })),
           },
           hasUnsavedChanges: true,
         })),
 
-      moveElement: (elementId, fromSectionId, fromColumnId, toSectionId, toColumnId, toIndex) =>
+      moveElement: (
+        elementId,
+        fromSectionId,
+        fromColumnId,
+        fromIndex,
+        toSectionId,
+        toColumnId,
+        toIndex,
+      ) =>
         set((state) => {
           let moving: Element | undefined;
           const sectionsAfterRemove = state.pageContent.sections.map((s) => {
@@ -316,7 +434,16 @@ export const useBuilderStore = create<BuilderState>()(
               columns: s.columns.map((c) => {
                 if (c.id !== toColumnId) return c;
                 const elements = [...c.elements];
-                const idx = Math.max(0, Math.min(toIndex, elements.length));
+                const adjustedIndex =
+                  fromSectionId === toSectionId &&
+                  fromColumnId === toColumnId &&
+                  toIndex > fromIndex
+                    ? toIndex - 1
+                    : toIndex;
+                const idx = Math.max(
+                  0,
+                  Math.min(adjustedIndex, elements.length),
+                );
                 elements.splice(idx, 0, moving!);
                 return { ...c, elements };
               }),
@@ -324,7 +451,10 @@ export const useBuilderStore = create<BuilderState>()(
           });
 
           return {
-            pageContent: { ...state.pageContent, sections: sectionsAfterInsert },
+            pageContent: {
+              ...state.pageContent,
+              sections: sectionsAfterInsert,
+            },
             hasUnsavedChanges: true,
           };
         }),
@@ -333,7 +463,7 @@ export const useBuilderStore = create<BuilderState>()(
         set({
           selectedElementId: elementId,
           selectedSectionId: sectionId,
-          settingsPanelOpen: !!elementId,
+          settingsPanelOpen: !!elementId || !!sectionId,
         }),
 
       hoverElement: (elementId) => set({ hoveredElementId: elementId }),
@@ -343,6 +473,10 @@ export const useBuilderStore = create<BuilderState>()(
       setIsSaving: (saving) => set({ isSaving: saving }),
       setIsPublishing: (publishing) => set({ isPublishing: publishing }),
       setHasUnsavedChanges: (changed) => set({ hasUnsavedChanges: changed }),
+      bumpLibraryRefreshNonce: () =>
+        set((state) => ({
+          libraryRefreshNonce: state.libraryRefreshNonce + 1,
+        })),
     }),
     {
       limit: 50,
@@ -354,7 +488,11 @@ export const useBuilderStore = create<BuilderState>()(
 function deepMerge(target: any, source: any): any {
   const result = { ...target };
   for (const key of Object.keys(source)) {
-    if (source[key] && typeof source[key] === "object" && !Array.isArray(source[key])) {
+    if (
+      source[key] &&
+      typeof source[key] === "object" &&
+      !Array.isArray(source[key])
+    ) {
       result[key] = deepMerge(target[key] || {}, source[key]);
     } else {
       result[key] = source[key];
@@ -362,76 +500,3 @@ function deepMerge(target: any, source: any): any {
   }
   return result;
 }
-
-function defaultSectionSettings(): Section["settings"] {
-  const responsive = <T,>(v: T) => ({ desktop: v, tablet: v, mobile: v });
-  return {
-    backgroundColor: responsive("#ffffff"),
-    backgroundImage: null,
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    paddingTop: responsive(40),
-    paddingBottom: responsive(40),
-    paddingLeft: responsive(20),
-    paddingRight: responsive(20),
-    marginTop: responsive(0),
-    marginBottom: responsive(0),
-    fullWidth: false,
-    minHeight: responsive<number | null>(null),
-    borderRadius: 0,
-    borderWidth: 0,
-    borderColor: "#e5e7eb",
-    borderStyle: "solid",
-    customCss: "",
-    customId: "",
-    customClass: "",
-    animation: { type: "none" as const, duration: 600, delay: 0, once: true },
-  };
-}
-
-function defaultColumnSettings(): Column["settings"] {
-  return {
-    verticalAlign: "top",
-    paddingTop: { desktop: 0, tablet: 0, mobile: 0 },
-    paddingBottom: { desktop: 0, tablet: 0, mobile: 0 },
-    paddingLeft: { desktop: 10, tablet: 10, mobile: 10 },
-    paddingRight: { desktop: 10, tablet: 10, mobile: 10 },
-    backgroundColor: "transparent",
-  };
-}
-
-function createDefaultElement(partial: Partial<Element>): Partial<Element> {
-  const responsive = <T,>(v: T) => ({ desktop: v, tablet: v, mobile: v });
-  const base = {
-    id: nanoid(),
-    name: "Element",
-    visible: true,
-    locked: false,
-    settings: {
-      marginTop: responsive(0),
-      marginBottom: responsive(15),
-      marginLeft: responsive(0),
-      marginRight: responsive(0),
-      paddingTop: responsive(0),
-      paddingBottom: responsive(0),
-      paddingLeft: responsive(0),
-      paddingRight: responsive(0),
-      width: responsive("100%"),
-      maxWidth: responsive("100%"),
-      textAlign: responsive<"left" | "center" | "right">("left"),
-      display: responsive<"block" | "none">("block"),
-      borderWidth: 0,
-      borderStyle: "solid",
-      borderColor: "transparent",
-      borderRadius: 0,
-      backgroundColor: "transparent",
-      opacity: 1,
-      animation: { type: "none" as const, duration: 600, delay: 0, once: true },
-      customCss: "",
-      customId: "",
-      customClass: "",
-    },
-  };
-  return { ...base, ...partial };
-}
-

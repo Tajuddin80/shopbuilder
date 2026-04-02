@@ -1,0 +1,68 @@
+<section class="shopbuilder-feature-callout" style="padding: 48px 20px; background: {{ section.settings.background_color }};">
+  <div style="max-width: 1100px; margin: 0 auto; display: grid; gap: 18px; text-align: center;">
+    <p style="margin: 0; letter-spacing: 0.18em; text-transform: uppercase; color: {{ section.settings.eyebrow_color }};">
+      {{ section.settings.eyebrow }}
+    </p>
+    <h2 style="margin: 0; color: {{ section.settings.heading_color }};">
+      {{ section.settings.heading }}
+    </h2>
+    <div style="max-width: 720px; margin: 0 auto; color: {{ section.settings.body_color }};">
+      {{ section.settings.body }}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "ShopBuilder Feature Callout",
+  "settings": [
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Built for growth"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Add native sections through the app"
+    },
+    {
+      "type": "richtext",
+      "id": "body",
+      "label": "Body",
+      "default": "<p>Use this as a starting point for your own library of installable Liquid sections.</p>"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background color",
+      "default": "#f8fafc"
+    },
+    {
+      "type": "color",
+      "id": "eyebrow_color",
+      "label": "Eyebrow color",
+      "default": "#0f766e"
+    },
+    {
+      "type": "color",
+      "id": "heading_color",
+      "label": "Heading color",
+      "default": "#0f172a"
+    },
+    {
+      "type": "color",
+      "id": "body_color",
+      "label": "Body color",
+      "default": "#475569"
+    }
+  ],
+  "presets": [
+    {
+      "name": "ShopBuilder Feature Callout"
+    }
+  ]
+}
+{% endschema %}

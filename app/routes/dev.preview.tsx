@@ -2,8 +2,7 @@ import { AppProvider as PolarisProvider } from "@shopify/polaris";
 import enTranslations from "@shopify/polaris/locales/en.json";
 import { useEffect } from "react";
 import { BuilderToolbar } from "~/components/builder/BuilderToolbar";
-import { BuilderSidebar } from "~/components/builder/BuilderSidebar";
-import { BuilderCanvas } from "~/components/builder/BuilderCanvas";
+import { BuilderWorkspace } from "~/components/builder/BuilderWorkspace";
 import { SettingsPanel } from "~/components/builder/SettingsPanel";
 import { useBuilderStore } from "~/store/builderStore";
 
@@ -27,15 +26,23 @@ export default function DevPreviewRoute() {
 
   return (
     <PolarisProvider i18n={enTranslations}>
-      <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          height: "100vh",
+          overflow: "hidden",
+          minHeight: 0,
+        }}
+      >
         <BuilderToolbar />
-        <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-          <BuilderSidebar />
-          <BuilderCanvas />
+        <div
+          style={{ display: "flex", flex: 1, overflow: "hidden", minHeight: 0, minWidth: 0 }}
+        >
+          <BuilderWorkspace />
           <SettingsPanel />
         </div>
       </div>
     </PolarisProvider>
   );
 }
-
