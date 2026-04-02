@@ -22,7 +22,12 @@ api_version = "2026-04"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_themes,read_themes,read_content,write_content,read_products,write_products,read_collection_listings,write_files"
+scopes = "write_themes,read_themes,read_content,write_content,read_products,write_products,read_collection_listings,write_files,write_app_proxy"
+
+[app_proxy]
+url = "/proxy"
+subpath = "shopbuilder"
+prefix = "apps"
 
 [auth]
 redirect_urls = [ "https://example.com/auth/callback" ]

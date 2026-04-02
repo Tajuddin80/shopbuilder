@@ -1,20 +1,12 @@
 import type { LoaderFunctionArgs } from "react-router";
 import { authenticate } from "~/lib/shopify.server";
-import { db } from "~/lib/db.server";
+import { ensureShopRecord } from "~/lib/shop.server";
 import { syncLocalThemeSections } from "~/lib/themeSectionLibrary.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const { session, admin } = await authenticate.admin(request);
 
-  await db.shop.upsert({
-    where: { shopDomain: session.shop },
-    update: { accessToken: session.accessToken, installedAt: new Date() },
-    create: {
-      shopDomain: session.shop,
-      accessToken: session.accessToken ?? "",
-      plan: "FREE",
-    },
-  });
+  await ensureShopRecord(session);
 
   try {
     await syncLocalThemeSections(admin);

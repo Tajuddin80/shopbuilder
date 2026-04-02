@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "~/lib/shopify.server";
 import { db } from "~/lib/db.server";
+import { ensureShopRecord } from "~/lib/shop.server";
 import { pageContentSchema } from "~/lib/pageSchema";
 
 export async function action({ request, params }: ActionFunctionArgs) {
@@ -16,13 +17,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     });
   }
 
-  const shop = await db.shop.findUnique({ where: { shopDomain: session.shop } });
-  if (!shop) {
-    return new Response(JSON.stringify({ error: "Shop not found" }), {
-      status: 404,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
+  const shop = await ensureShopRecord(session);
 
   const existingPage = await db.page.findFirst({ where: { id: pageId, shopId: shop.id } });
   if (existingPage) {

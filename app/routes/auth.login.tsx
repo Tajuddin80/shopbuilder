@@ -26,7 +26,7 @@ export default function AuthLogin() {
   return (
     <ShopifyAppProvider embedded={false}>
       <s-page>
-        <Form method="post">
+        <Form method="get" reloadDocument target="_top">
           <s-section heading="Log in">
             <s-text-field
               name="shop"

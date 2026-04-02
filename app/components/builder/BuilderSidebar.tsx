@@ -1,5 +1,5 @@
-import { Button, Card, InlineStack, Tabs, Text } from "@shopify/polaris";
-import { useEffect, useState } from "react";
+import { Button, Card, InlineStack, Tabs, Text, TextField } from "@shopify/polaris";
+import { useEffect, useMemo, useState } from "react";
 import { ELEMENT_REGISTRY } from "~/lib/elementRegistry";
 import {
   cloneSavedSection,
@@ -29,6 +29,8 @@ export function BuilderSidebar() {
   const [themeSections, setThemeSections] = useState<ThemeSectionLibraryItem[]>(
     [],
   );
+  const [presetQuery, setPresetQuery] = useState("");
+  const [isSyncingThemeSections, setIsSyncingThemeSections] = useState(false);
 
   const tabs = [
     { id: "elements", content: "Library", panelID: "elements-panel" },
@@ -37,6 +39,16 @@ export function BuilderSidebar() {
   ] as const;
 
   const selected = tabs.findIndex((tab) => tab.id === sidebarTab);
+  const normalizedPresetQuery = presetQuery.trim().toLowerCase();
+  const filteredPresets = useMemo(() => {
+    if (!normalizedPresetQuery) return SECTION_PRESETS;
+
+    return SECTION_PRESETS.filter((preset) =>
+      `${preset.name} ${preset.description} ${(preset.keywords || []).join(" ")}`
+        .toLowerCase()
+        .includes(normalizedPresetQuery),
+    );
+  }, [normalizedPresetQuery]);
 
   useEffect(() => {
     let active = true;
@@ -56,6 +68,23 @@ export function BuilderSidebar() {
       active = false;
     };
   }, [libraryRefreshNonce]);
+
+  async function syncThemeSections() {
+    try {
+      setIsSyncingThemeSections(true);
+      const response = await fetch("/api/section-library", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intent: "sync_local_theme_sections" }),
+      });
+      if (!response.ok) return;
+      const payload = await response.json();
+      setSavedSections(payload.savedSections || []);
+      setThemeSections(payload.themeSections || []);
+    } finally {
+      setIsSyncingThemeSections(false);
+    }
+  }
 
   function handleAddPreset(presetId: string) {
     const section = createSectionFromPreset(presetId);
@@ -151,7 +180,7 @@ export function BuilderSidebar() {
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <div>
                 <Text as="p" fontWeight="semibold">
-                  Section Presets
+                  Prebuilt Sections
                 </Text>
                 <div
                   style={{
@@ -168,7 +197,20 @@ export function BuilderSidebar() {
               <div
                 style={{ display: "flex", flexDirection: "column", gap: 12 }}
               >
-                {SECTION_PRESETS.map((preset) => (
+                <TextField
+                  label="Search prebuilt sections"
+                  labelHidden
+                  autoComplete="off"
+                  placeholder="Search prebuilt sections"
+                  value={presetQuery}
+                  onChange={setPresetQuery}
+                />
+
+                {filteredPresets.length === 0 ? (
+                  <div style={{ fontSize: 13, color: "#64748b" }}>
+                    No prebuilt sections match that search yet.
+                  </div>
+                ) : filteredPresets.map((preset) => (
                   <DraggableSectionPreset
                     key={preset.id}
                     preset={preset}
@@ -240,6 +282,72 @@ export function BuilderSidebar() {
 
           <Card>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <InlineStack align="space-between" blockAlign="center">
+                <Text as="p" fontWeight="semibold">
+                  Native Liquid Sections
+                </Text>
+                <InlineStack gap="200" blockAlign="center">
+                  <Text as="span" tone="subdued">
+                    {themeSections.length}
+                  </Text>
+                  <Button
+                    size="micro"
+                    onClick={syncThemeSections}
+                    loading={isSyncingThemeSections}
+                  >
+                    Sync
+                  </Button>
+                </InlineStack>
+              </InlineStack>
+              <div style={{ fontSize: 13, color: "#5c6a79", lineHeight: 1.5 }}>
+                Files from <code>theme-sections/</code> also show up here as
+                prebuilt items. Adding one drops an editable Liquid reference
+                section into the canvas, and the same file is synced into
+                Shopify as a native section under <strong>Add section</strong>,
+                not under <strong>Apps</strong>.
+                The <strong>Sync</strong> button is only a developer shortcut
+                when you add new local files while this app is already open.
+              </div>
+
+              {themeSections.length === 0 ? (
+                <div style={{ fontSize: 13, color: "#64748b" }}>
+                  No local theme sections found yet.
+                </div>
+              ) : (
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                >
+                  {themeSections.map((item) => (
+                    <button
+                      key={item.handle}
+                      type="button"
+                      onClick={() => handleAddThemeReference(item)}
+                      style={{
+                        border: "1px solid #dbe2ea",
+                        borderRadius: 12,
+                        background: "#ffffff",
+                        textAlign: "left",
+                        padding: 12,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <div style={{ fontWeight: 600, color: "#0f172a" }}>
+                        {item.name}
+                      </div>
+                      <div
+                        style={{ marginTop: 4, fontSize: 12, color: "#64748b" }}
+                      >
+                        sections/{item.fileName}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Card>
+
+          <Card>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <Text as="p" fontWeight="semibold">
                 Add Blocks
               </Text>
@@ -286,7 +394,10 @@ export function BuilderSidebar() {
                 <code>theme-sections/</code>. The app now syncs those files
                 automatically during install, when the library loads, and when a
                 page is saved, so they feel like built-in sections from the
-                start.
+                start. These same items are also available in the Library tab
+                under <strong>Native Liquid Sections</strong>. If you add a new
+                file while the app is already open, click <strong>Sync</strong>{" "}
+                in the Library tab to pull it in immediately during development.
               </div>
 
               {themeSections.length === 0 ? (

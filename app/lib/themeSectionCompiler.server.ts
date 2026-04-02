@@ -1,69 +1,889 @@
 import type { Element, Section } from "./pageSchema";
 
-type SchemaSetting = Record<string, unknown>;
+type ResponsiveLike<T> =
+  | T
+  | {
+      desktop?: T;
+      tablet?: T;
+      mobile?: T;
+    }
+  | null
+  | undefined;
 
-function rangeSetting(
-  id: string,
-  label: string,
-  min: number,
-  max: number,
-  step: number,
-  defaultValue: number,
-): SchemaSetting {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function getResponsiveValue<T>(value: ResponsiveLike<T>, fallback: T): T {
+  if (isRecord(value)) {
+    const desktop = value.desktop;
+    if (desktop !== undefined) return desktop as T;
+  }
+
+  return (value ?? fallback) as T;
+}
+
+function toNumber(value: unknown, fallback: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function toBoolean(value: unknown, fallback = false) {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function toStringValue(value: unknown, fallback = "") {
+  return typeof value === "string" ? value : fallback;
+}
+
+function toItems<T extends Record<string, unknown>>(value: unknown) {
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
+function escapeHtml(value: unknown) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function escapeAttribute(value: unknown) {
+  return escapeHtml(value);
+}
+
+function escapeCssUrl(value: string) {
+  return encodeURI(value).replace(/'/g, "%27");
+}
+
+function sanitizeCustomMarkup(value: unknown) {
+  return toStringValue(value)
+    .replace(/\{%\s*schema\s*%\}/gi, "{% comment %}schema removed{% endcomment %}")
+    .replace(/\{%\s*endschema\s*%\}/gi, "{% comment %}endschema removed{% endcomment %}");
+}
+
+function joinStyles(parts: Array<string | false | null | undefined>) {
+  return parts.filter(Boolean).join(" ");
+}
+
+function sanitizeClassName(value: string) {
+  return value.replace(/[^a-z0-9_-]+/gi, "-");
+}
+
+function getButtonPadding(size: string) {
+  switch (size) {
+    case "small":
+      return "10px 16px";
+    case "large":
+      return "16px 28px";
+    default:
+      return "12px 22px";
+  }
+}
+
+function getAspectRatio(value: string) {
+  switch (value) {
+    case "portrait":
+      return "4 / 5";
+    case "landscape":
+      return "4 / 3";
+    case "wide":
+      return "16 / 9";
+    default:
+      return "1 / 1";
+  }
+}
+
+function getEmbedUrl(value: string) {
+  if (!value) return "";
+  if (value.includes("youtube.com/watch?v=")) {
+    return value.replace("watch?v=", "embed/");
+  }
+  if (value.includes("youtu.be/")) {
+    return value.replace("youtu.be/", "youtube.com/embed/");
+  }
+  if (value.includes("vimeo.com/")) {
+    return value.replace("vimeo.com/", "player.vimeo.com/video/");
+  }
+  return value;
+}
+
+function getIconGlyph(value: string) {
+  switch (value) {
+    case "heart":
+      return "&#9829;";
+    case "check":
+      return "&#10003;";
+    case "circle":
+      return "&#9679;";
+    default:
+      return "&#9733;";
+  }
+}
+
+function getJustify(value: string) {
+  switch (value) {
+    case "center":
+      return "center";
+    case "right":
+      return "flex-end";
+    default:
+      return "flex-start";
+  }
+}
+
+function getColumnAlignment(value: string) {
+  switch (value) {
+    case "middle":
+      return "center";
+    case "bottom":
+      return "flex-end";
+    default:
+      return "flex-start";
+  }
+}
+
+function getInitials(value: string) {
+  const parts = value
+    .split(/[\s_-]+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .slice(0, 2);
+
+  if (!parts.length) return "SB";
+  return parts.map((part) => part[0]?.toUpperCase() || "").join("");
+}
+
+function getHeadingTag(value: string) {
+  return ["h1", "h2", "h3", "h4", "p", "div"].includes(value) ? value : "h2";
+}
+
+function buildSectionSchema({
+  displayName,
+  section,
+  containerWidth,
+}: {
+  displayName: string;
+  section: Section;
+  containerWidth: number;
+}) {
   return {
-    type: "range",
-    id,
-    label,
-    min,
-    max,
-    step,
-    default: defaultValue,
+    name: displayName,
+    settings: [
+      {
+        type: "paragraph",
+        content:
+          "Built with Shop Builder. Edit content in the app, then save again to resync this section.",
+      },
+      {
+        type: "checkbox",
+        id: "sb_full_width",
+        label: "Full width",
+        default: Boolean(section.settings.fullWidth),
+      },
+      {
+        type: "range",
+        id: "sb_container_width",
+        label: "Container width",
+        min: 600,
+        max: 1800,
+        step: 20,
+        default: Math.max(600, Math.min(1800, Math.round(containerWidth || 1200))),
+      },
+      {
+        type: "range",
+        id: "sb_padding_top",
+        label: "Padding top",
+        min: 0,
+        max: 200,
+        step: 4,
+        default: Math.max(
+          0,
+          Math.min(200, toNumber(section.settings.paddingTop.desktop, 40)),
+        ),
+      },
+      {
+        type: "range",
+        id: "sb_padding_bottom",
+        label: "Padding bottom",
+        min: 0,
+        max: 200,
+        step: 4,
+        default: Math.max(
+          0,
+          Math.min(200, toNumber(section.settings.paddingBottom.desktop, 40)),
+        ),
+      },
+      {
+        type: "color",
+        id: "sb_background_color",
+        label: "Background color",
+        default: toStringValue(
+          section.settings.backgroundColor.desktop,
+          "#ffffff",
+        ),
+      },
+    ],
+    presets: [{ name: displayName }],
   };
 }
 
-function colorSetting(
-  id: string,
-  label: string,
-  defaultValue: string,
-): SchemaSetting {
-  return { type: "color", id, label, default: defaultValue };
+function buildElementMarkup({
+  element,
+  columnIndex,
+  elementIndex,
+}: {
+  element: Element;
+  columnIndex: number;
+  elementIndex: number;
+}) {
+  const content = isRecord((element as { content?: unknown }).content)
+    ? (element as { content?: Record<string, unknown> }).content!
+    : {};
+  const settings = element.settings;
+  const elementId = `shopbuilder-c${columnIndex + 1}-e${elementIndex + 1}-{{ section.id }}`;
+  const customId = toStringValue(settings.customId).trim();
+  const customClass = toStringValue(settings.customClass).trim();
+  const customCss = toStringValue(settings.customCss).trim();
+
+  const wrapperStyles = joinStyles([
+    `display:${element.visible ? getResponsiveValue(settings.display, "block") : "none"};`,
+    `width:${getResponsiveValue(settings.width, "100%")};`,
+    `max-width:${getResponsiveValue(settings.maxWidth, "100%")};`,
+    `margin:${getResponsiveValue(settings.marginTop, 0)}px ${getResponsiveValue(settings.marginRight, 0)}px ${getResponsiveValue(settings.marginBottom, 0)}px ${getResponsiveValue(settings.marginLeft, 0)}px;`,
+    `padding:${getResponsiveValue(settings.paddingTop, 0)}px ${getResponsiveValue(settings.paddingRight, 0)}px ${getResponsiveValue(settings.paddingBottom, 0)}px ${getResponsiveValue(settings.paddingLeft, 0)}px;`,
+    `text-align:${getResponsiveValue(settings.textAlign, "left")};`,
+    settings.backgroundColor !== "transparent"
+      ? `background:${settings.backgroundColor};`
+      : "",
+    settings.borderWidth > 0
+      ? `border:${settings.borderWidth}px ${settings.borderStyle} ${settings.borderColor};`
+      : "",
+    settings.borderRadius > 0 ? `border-radius:${settings.borderRadius}px;` : "",
+    settings.opacity !== 1 ? `opacity:${settings.opacity};` : "",
+    "box-sizing:border-box;",
+  ]);
+
+  const contentMarkup = buildElementContent({
+    element,
+    content,
+    wrapperId: elementId,
+  });
+
+  return `<div id="${elementId}"${customId ? ` data-custom-id="${escapeAttribute(customId)}"` : ""} class="sb-native-element sb-native-element--${sanitizeClassName(element.type)}${customClass ? ` ${escapeAttribute(customClass)}` : ""}" style="${escapeAttribute(wrapperStyles)}">
+${customCss ? `  <style>#${elementId} { ${customCss} }</style>\n` : ""}  ${contentMarkup}
+</div>`;
 }
 
-function textSetting(
-  id: string,
-  label: string,
-  defaultValue: string,
-): SchemaSetting {
-  return { type: "text", id, label, default: defaultValue };
-}
+function buildElementContent({
+  element,
+  content,
+  wrapperId,
+}: {
+  element: Element;
+  content: Record<string, unknown>;
+  wrapperId: string;
+}) {
+  switch (element.type) {
+    case "heading": {
+      const text = escapeHtml(toStringValue(content.text, "Heading"));
+      const tag = getHeadingTag(toStringValue(content.tag, "h2"));
+      const linkUrl = toStringValue(content.linkUrl).trim();
+      const target = toStringValue(content.linkTarget, "_self");
+      const innerMarkup = linkUrl
+        ? `<a href="${escapeAttribute(linkUrl)}"${target === "_blank" ? ' target="_blank" rel="noopener noreferrer"' : ""} style="color:inherit; text-decoration:none;">${text}</a>`
+        : text;
+      const styles = joinStyles([
+        "margin:0;",
+        `font-size:${toNumber(getResponsiveValue(content.fontSize, 32), 32)}px;`,
+        `color:${toStringValue(content.color, "#111111")};`,
+        `font-weight:${escapeAttribute(toStringValue(content.fontWeight, "700"))};`,
+        toStringValue(content.fontFamily).trim()
+          ? `font-family:${escapeAttribute(toStringValue(content.fontFamily))};`
+          : "",
+        toNumber(content.lineHeight, 0) > 0
+          ? `line-height:${toNumber(content.lineHeight, 1.2)};`
+          : "",
+        `letter-spacing:${toNumber(content.letterSpacing, 0)}px;`,
+        toStringValue(content.textTransform).trim()
+          ? `text-transform:${escapeAttribute(toStringValue(content.textTransform))};`
+          : "",
+      ]);
+      return `<${tag} style="${escapeAttribute(styles)}">${innerMarkup}</${tag}>`;
+    }
 
-function textareaSetting(
-  id: string,
-  label: string,
-  defaultValue: string,
-): SchemaSetting {
-  return { type: "textarea", id, label, default: defaultValue };
-}
+    case "text": {
+      const styles = joinStyles([
+        `font-size:${toNumber(getResponsiveValue(content.fontSize, 16), 16)}px;`,
+        `color:${toStringValue(content.color, "#444444")};`,
+        `line-height:${toNumber(content.lineHeight, 1.6)};`,
+        toStringValue(content.fontFamily).trim()
+          ? `font-family:${escapeAttribute(toStringValue(content.fontFamily))};`
+          : "",
+      ]);
+      return `<div style="${escapeAttribute(styles)}">${sanitizeCustomMarkup(
+        content.html || "<p>Text content</p>",
+      )}</div>`;
+    }
 
-function selectSetting(
-  id: string,
-  label: string,
-  defaultValue: string,
-  options: Array<{ value: string; label: string }>,
-): SchemaSetting {
-  return { type: "select", id, label, default: defaultValue, options };
-}
+    case "image": {
+      const src = toStringValue(content.src).trim();
+      const alt = toStringValue(content.alt).trim();
+      const linkUrl = toStringValue(content.linkUrl).trim();
+      const objectFit = toStringValue(content.objectFit, "cover");
+      const loading = toStringValue(content.loading, "lazy");
+      const imageMarkup = src
+        ? `<img src="${escapeAttribute(src)}" alt="${escapeAttribute(alt)}" loading="${escapeAttribute(loading)}" style="width:100%; display:block; object-fit:${escapeAttribute(objectFit)}; border-radius:${element.settings.borderRadius}px;">`
+        : `<div style="padding:24px; border:1px dashed #cbd5e1; border-radius:${element.settings.borderRadius}px; text-align:center; color:#64748b;">Add an image in Shop Builder.</div>`;
+      return linkUrl
+        ? `<a href="${escapeAttribute(linkUrl)}" style="display:block; text-decoration:none;">${imageMarkup}</a>`
+        : imageMarkup;
+    }
 
-function checkboxSetting(
-  id: string,
-  label: string,
-  defaultValue: boolean,
-): SchemaSetting {
-  return { type: "checkbox", id, label, default: defaultValue };
-}
+    case "button": {
+      const variant = toStringValue(content.style, "filled");
+      const text = escapeHtml(toStringValue(content.text, "Button"));
+      const url = toStringValue(content.url, "#");
+      const target = toStringValue(content.target, "_self");
+      const backgroundColor = toStringValue(content.backgroundColor, "#111111");
+      const textColor = toStringValue(content.textColor, "#ffffff");
+      const borderColor = toStringValue(content.borderColor, backgroundColor);
 
-function urlSetting(id: string, label: string): SchemaSetting {
-  return { type: "url", id, label };
+      let buttonStyles = "";
+      if (variant === "outline") {
+        buttonStyles =
+          `background:transparent; color:${textColor}; border:2px solid ${borderColor};`;
+      } else if (variant === "text") {
+        buttonStyles = "background:transparent; color:#111111; border:0;";
+      } else {
+        buttonStyles =
+          `background:${backgroundColor}; color:${textColor}; border:2px solid ${borderColor};`;
+      }
+
+      return `<a href="${escapeAttribute(url)}"${target === "_blank" ? ' target="_blank" rel="noopener noreferrer"' : ""} style="display:inline-flex; align-items:center; justify-content:center; gap:8px; text-decoration:none; font-weight:600; border-radius:999px; padding:${getButtonPadding(toStringValue(content.size, "medium"))}; ${buttonStyles}">
+  ${text}
+</a>`;
+    }
+
+    case "divider": {
+      const alignment = toStringValue(content.alignment, "center");
+      return `<div style="display:flex; justify-content:${getJustify(alignment)};">
+  <div style="width:${Math.max(1, Math.min(100, toNumber(content.width, 100)))}%; border-top:${Math.max(1, toNumber(content.thickness, 1))}px ${escapeAttribute(toStringValue(content.style, "solid"))} ${escapeAttribute(toStringValue(content.color, "#e5e7eb"))};"></div>
+</div>`;
+    }
+
+    case "spacer":
+      return `<div style="height:${Math.max(0, toNumber(getResponsiveValue(content.height, 40), 40))}px;"></div>`;
+
+    case "html":
+      return sanitizeCustomMarkup(content.html || "");
+
+    case "liquid":
+      return sanitizeCustomMarkup(content.liquid || "");
+
+    case "video": {
+      const url = toStringValue(content.url).trim();
+      const posterImage = toStringValue(content.posterImage).trim();
+      const isMp4 =
+        toStringValue(content.videoType) === "mp4" || /\.mp4(\?|$)/i.test(url);
+      const aspectRatio = toStringValue(content.aspectRatio, "16:9");
+
+      if (isMp4 && url) {
+        return `<div style="width:100%; border-radius:16px; overflow:hidden; background:#0f172a;">
+  <video src="${escapeAttribute(url)}"${posterImage ? ` poster="${escapeAttribute(posterImage)}"` : ""}${toBoolean(content.autoplay) ? " autoplay playsinline" : ""}${toBoolean(content.loop) ? " loop" : ""}${toBoolean(content.muted) ? " muted" : ""}${toBoolean(content.controls, true) ? " controls" : ""} style="display:block; width:100%; aspect-ratio:${escapeAttribute(
+          getAspectRatio(aspectRatio),
+        )}; object-fit:cover;"></video>
+</div>`;
+      }
+
+      if (url) {
+        return `<div style="position:relative; width:100%; overflow:hidden; border-radius:16px; background:#0f172a; aspect-ratio:${escapeAttribute(
+          getAspectRatio(aspectRatio),
+        )};">
+  <iframe src="${escapeAttribute(getEmbedUrl(url))}" title="Video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="position:absolute; inset:0; width:100%; height:100%; border:0;"></iframe>
+</div>`;
+      }
+
+      if (posterImage) {
+        return `<img src="${escapeAttribute(posterImage)}" alt="" style="width:100%; display:block; border-radius:16px;">`;
+      }
+
+      return `<div style="padding:24px; border-radius:16px; background:#0f172a; color:#e2e8f0; text-align:center;">Add a YouTube, Vimeo, or MP4 URL in Shop Builder.</div>`;
+    }
+
+    case "map":
+      return `<div style="position:relative; width:100%; border-radius:16px; overflow:hidden; height:${Math.max(
+        240,
+        toNumber(getResponsiveValue(content.height, 420), 420),
+      )}px;">
+  <iframe src="https://www.google.com/maps?q=${encodeURIComponent(toStringValue(content.query, "New York, NY"))}&output=embed" title="Map" style="position:absolute; inset:0; width:100%; height:100%; border:0;"></iframe>
+</div>`;
+
+    case "icon": {
+      const size = Math.max(16, toNumber(getResponsiveValue(content.size, 40), 40));
+      const iconMarkup = `<span style="display:inline-flex; align-items:center; justify-content:center; width:${size}px; height:${size}px; font-size:${Math.max(12, Math.round(size / 2))}px; color:${escapeAttribute(toStringValue(content.color, "#111111"))};">${getIconGlyph(
+        toStringValue(content.icon, "star"),
+      )}</span>`;
+      const linkUrl = toStringValue(content.linkUrl).trim();
+      return linkUrl
+        ? `<a href="${escapeAttribute(linkUrl)}" style="display:inline-flex; text-decoration:none;">${iconMarkup}</a>`
+        : iconMarkup;
+    }
+
+    case "social_icons": {
+      const icons = toItems<Record<string, unknown>>(content.icons);
+      const gap = Math.max(0, toNumber(content.gap, 12));
+      const size = Math.max(18, toNumber(content.iconSize, 24));
+      const color = toStringValue(content.iconColor, "#111111");
+      const alignment = getJustify(toStringValue(content.alignment, "center"));
+      const filled = toStringValue(content.iconStyle, "logo") === "filled";
+      return `<div style="display:flex; flex-wrap:wrap; gap:${gap}px; justify-content:${alignment};">
+  ${icons
+    .map((item) => {
+      const platform = toStringValue(item.platform, "icon");
+      const label = getInitials(platform);
+      const url = toStringValue(item.url, "#");
+      return `<a href="${escapeAttribute(url)}" aria-label="${escapeAttribute(platform)}" style="display:inline-flex; align-items:center; justify-content:center; min-width:${size}px; height:${size}px; padding:0 10px; border-radius:999px; border:1px solid ${filled ? color : "#cbd5e1"}; background:${filled ? color : "transparent"}; color:${filled ? "#ffffff" : color}; text-decoration:none; text-transform:uppercase; letter-spacing:0.08em; font-size:11px; font-weight:700;">${escapeHtml(
+        label,
+      )}</a>`;
+    })
+    .join("\n  ")}
+</div>`;
+    }
+
+    case "testimonial": {
+      const items = toItems<Record<string, unknown>>(content.items);
+      const columns = Math.max(
+        1,
+        Math.min(4, toNumber(getResponsiveValue(content.columns, 3), 3)),
+      );
+      const tabletColumns = isRecord(content.columns)
+        ? Math.max(1, Math.min(4, toNumber(content.columns.tablet, columns)))
+        : Math.min(2, columns);
+      const mobileColumns = isRecord(content.columns)
+        ? Math.max(1, Math.min(4, toNumber(content.columns.mobile, 1)))
+        : 1;
+      const showRating = toBoolean(content.showRating, true);
+      const showAvatar = toBoolean(content.showAvatar, false);
+
+      return `<div data-sb-grid style="--sb-grid-columns:${columns}; --sb-grid-columns-tablet:${tabletColumns}; --sb-grid-columns-mobile:${mobileColumns};">
+  ${items
+    .map((item) => {
+      const quote = escapeHtml(toStringValue(item.quote, "Amazing product."));
+      const author = escapeHtml(toStringValue(item.author, "Customer"));
+      const role = escapeHtml(toStringValue(item.role));
+      const avatar = toStringValue(item.avatar).trim();
+      const rating = Math.max(1, Math.min(5, toNumber(item.rating, 5)));
+      return `<div style="display:flex; flex-direction:column; gap:12px; height:100%; padding:18px; border:1px solid #e2e8f0; border-radius:18px; background:#ffffff;">
+  ${showAvatar ? `<div style="display:flex; align-items:center; gap:10px;">
+    ${
+      avatar
+        ? `<img src="${escapeAttribute(avatar)}" alt="${author}" style="width:44px; height:44px; border-radius:999px; object-fit:cover;">`
+        : `<div style="display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:999px; background:#dbeafe; color:#1d4ed8; font-size:13px; font-weight:700;">${escapeHtml(
+            getInitials(author),
+          )}</div>`
+    }
+    <div>
+      <div style="font-weight:600; color:#0f172a;">${author}</div>
+      ${role ? `<div style="font-size:12px; color:#64748b;">${role}</div>` : ""}
+    </div>
+  </div>` : ""}
+  ${showRating ? `<div style="color:#f59e0b; letter-spacing:0.12em;">${"&#9733;".repeat(rating)}</div>` : ""}
+  <div style="font-size:14px; line-height:1.7; color:#334155;">${quote}</div>
+  ${
+    !showAvatar
+      ? `<div style="margin-top:auto; font-size:12px; color:#64748b;">${author}${role ? `, ${role}` : ""}</div>`
+      : ""
+  }
+</div>`;
+    })
+    .join("\n  ")}
+</div>`;
+    }
+
+    case "accordion": {
+      const items = toItems<Record<string, unknown>>(content.items);
+      const allowMultiple = toBoolean(content.allowMultiple, false);
+      const defaultOpen = toStringValue(content.defaultOpen).trim();
+      return `<div data-sb-accordion data-allow-multiple="${allowMultiple ? "true" : "false"}" style="display:flex; flex-direction:column; gap:10px;">
+  ${items
+    .map((item, index) => {
+      const isOpen =
+        defaultOpen === String(index) ||
+        defaultOpen === String(index + 1) ||
+        (!defaultOpen && index === 0);
+      return `<div data-sb-accordion-item class="${isOpen ? "is-open" : ""}" style="border:1px solid ${escapeAttribute(toStringValue(content.borderColor, "#e5e7eb"))}; border-radius:14px; overflow:hidden; background:#ffffff;">
+  <button type="button" data-sb-accordion-trigger aria-expanded="${isOpen ? "true" : "false"}" style="width:100%; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; border:0; background:#f8fafc; color:${escapeAttribute(toStringValue(content.headingColor, "#111111"))}; text-align:left; font-weight:600; cursor:pointer;">
+    <span>${escapeHtml(toStringValue(item.question, `Question ${index + 1}`))}</span>
+    <span aria-hidden="true">${isOpen ? "-" : "+"}</span>
+  </button>
+  <div data-sb-accordion-panel${isOpen ? "" : " hidden"} style="padding:16px; color:${escapeAttribute(toStringValue(content.contentColor, "#555555"))}; line-height:1.7;">
+    ${sanitizeCustomMarkup(item.answer || "")}
+  </div>
+</div>`;
+    })
+    .join("\n  ")}
+</div>`;
+    }
+
+    case "tabs": {
+      const tabs = toItems<Record<string, unknown>>(content.tabs);
+      const activeColor = toStringValue(content.activeColor, "#111111");
+      const inactiveColor = toStringValue(content.inactiveColor, "#64748b");
+      return `<div data-sb-tabs data-active-color="${escapeAttribute(activeColor)}" data-inactive-color="${escapeAttribute(inactiveColor)}">
+  <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;">
+    ${tabs
+      .map(
+        (tab, index) =>
+          `<button type="button" data-sb-tab-button="${wrapperId}-tab-${index}" style="padding:10px 14px; border:0; border-bottom:2px solid ${
+            index === 0 ? activeColor : "transparent"
+          }; background:transparent; color:${
+            index === 0 ? activeColor : inactiveColor
+          }; font-weight:600; cursor:pointer;">${escapeHtml(
+            toStringValue(tab.label, `Tab ${index + 1}`),
+          )}</button>`,
+      )
+      .join("\n    ")}
+  </div>
+  ${tabs
+    .map(
+      (tab, index) =>
+        `<div data-sb-tab-panel="${wrapperId}-tab-${index}"${
+          index === 0 ? "" : " hidden"
+        } style="border:1px solid #e2e8f0; border-radius:16px; padding:16px; background:#ffffff;">${sanitizeCustomMarkup(
+          tab.content || "<p>Tab content</p>",
+        )}</div>`,
+    )
+    .join("\n  ")}
+</div>`;
+    }
+
+    case "countdown": {
+      const targetDate = toStringValue(content.targetDate);
+      const expiredText = toStringValue(
+        content.expiredText,
+        "This offer has ended",
+      );
+      const redirectUrl = toStringValue(content.redirectUrl).trim();
+      const units = [
+        toBoolean(content.showDays, true) ? "days" : null,
+        toBoolean(content.showHours, true) ? "hours" : null,
+        toBoolean(content.showMinutes, true) ? "minutes" : null,
+        toBoolean(content.showSeconds, true) ? "seconds" : null,
+      ].filter(Boolean) as string[];
+
+      return `<div data-sb-countdown data-target-date="${escapeAttribute(targetDate)}" data-expired-text="${escapeAttribute(expiredText)}" data-redirect-url="${escapeAttribute(redirectUrl)}" style="display:flex; flex-wrap:wrap; gap:10px;">
+  ${units
+    .map(
+      (unit) =>
+        `<div style="min-width:72px; padding:14px; border-radius:14px; background:#ffffff; border:1px solid #e2e8f0; text-align:center;">
+    <div data-sb-count-part="${unit}" style="font-size:22px; font-weight:700; color:${escapeAttribute(toStringValue(content.numberColor, "#111111"))};">00</div>
+    <div style="margin-top:4px; font-size:11px; color:${escapeAttribute(toStringValue(content.labelColor, "#888888"))}; text-transform:uppercase; letter-spacing:0.08em;">${escapeHtml(
+      unit,
+    )}</div>
+  </div>`,
+    )
+    .join("\n  ")}
+  <div data-sb-count-expired hidden style="width:100%; font-size:13px; color:#64748b;">${escapeHtml(expiredText)}</div>
+</div>`;
+    }
+
+    case "form": {
+      const fields = toItems<Record<string, unknown>>(content.fields);
+      return `<form data-sb-form data-email-recipient="${escapeAttribute(toStringValue(content.emailRecipient))}" style="display:flex; flex-direction:column; gap:10px;">
+  ${fields
+    .map((field, index) => {
+      const type = toStringValue(field.type, "text");
+      const label = escapeHtml(
+        toStringValue(field.label, `Field ${index + 1}`),
+      );
+      const placeholder = escapeAttribute(toStringValue(field.placeholder));
+      const required = toBoolean(field.required) ? " required" : "";
+      const inputStyles = `width:100%; padding:11px 12px; border-radius:10px; border:1px solid ${escapeAttribute(
+        toStringValue(content.inputBorderColor, "#d1d5db"),
+      )}; box-sizing:border-box;`;
+
+      if (type === "textarea") {
+        return `<div style="display:flex; flex-direction:column; gap:4px;">
+    <label style="font-size:12px; color:#334155;">${label}</label>
+    <textarea placeholder="${placeholder}"${required} style="${inputStyles} min-height:120px;"></textarea>
+  </div>`;
+      }
+
+      return `<div style="display:flex; flex-direction:column; gap:4px;">
+    <label style="font-size:12px; color:#334155;">${label}</label>
+    <input type="${escapeAttribute(type || "text")}" placeholder="${placeholder}"${required} style="${inputStyles}">
+  </div>`;
+    })
+    .join("\n  ")}
+  <button type="submit" style="margin-top:4px; padding:12px 16px; border:0; border-radius:10px; background:${escapeAttribute(toStringValue(content.buttonColor, "#111111"))}; color:${escapeAttribute(toStringValue(content.buttonTextColor, "#ffffff"))}; font-weight:600;">${escapeHtml(
+    toStringValue(content.submitText, "Submit"),
+  )}</button>
+  <div data-sb-form-success hidden style="font-size:13px; color:#0f766e;">${escapeHtml(
+    toStringValue(content.successMessage, "Thank you!"),
+  )}</div>
+</form>`;
+    }
+
+    case "slider": {
+      const slides = toItems<Record<string, unknown>>(content.slides);
+      const height = Math.max(
+        180,
+        toNumber(getResponsiveValue(content.height, 420), 420),
+      );
+      const showDots = toBoolean(content.showDots, true);
+      const showArrows = toBoolean(content.showArrows, true);
+      const autoplay = toBoolean(content.autoplay, true);
+      const autoplaySpeed = Math.max(1200, toNumber(content.autoplaySpeed, 5000));
+
+      const normalizedSlides = slides.length
+        ? slides
+        : [
+            {
+              heading: "Slide one",
+              text: "Add slideshow content in Shop Builder.",
+              image: "",
+            },
+          ];
+
+      return `<div data-sb-slider data-autoplay="${autoplay ? "true" : "false"}" data-speed="${autoplaySpeed}">
+  <div style="position:relative; min-height:${height}px; border-radius:18px; overflow:hidden; background:#0f172a; color:#ffffff;">
+    ${normalizedSlides
+      .map((slide, index) => {
+        const image = toStringValue(
+          slide.image || slide.imageUrl || slide.src,
+        ).trim();
+        const background = image
+          ? `linear-gradient(180deg, rgba(15,23,42,0.18), rgba(15,23,42,0.82)), url('${escapeCssUrl(
+              image,
+            )}') center/cover no-repeat`
+          : "linear-gradient(135deg, #0f172a 0%, #2563eb 100%)";
+        return `<div data-sb-slider-slide class="${
+          index === 0 ? "is-active" : ""
+        }" style="position:${index === 0 ? "relative" : "absolute"}; inset:0; display:${
+          index === 0 ? "flex" : "none"
+        }; align-items:flex-end; min-height:${height}px; padding:28px; background:${background};">
+      <div style="max-width:560px;">
+        <div style="font-size:clamp(28px, 4vw, 44px); font-weight:700; line-height:1.08;">${escapeHtml(
+          toStringValue(slide.heading || slide.title, `Slide ${index + 1}`),
+        )}</div>
+        ${
+          toStringValue(slide.text || slide.subtitle).trim()
+            ? `<div style="margin-top:12px; font-size:15px; line-height:1.7; color:rgba(255,255,255,0.92);">${escapeHtml(
+                toStringValue(slide.text || slide.subtitle),
+              )}</div>`
+            : ""
+        }
+      </div>
+    </div>`;
+      })
+      .join("\n    ")}
+    ${
+      showArrows
+        ? `<button type="button" data-sb-slider-prev aria-label="Previous slide" style="position:absolute; top:50%; left:14px; transform:translateY(-50%); width:42px; height:42px; border-radius:999px; border:0; background:rgba(255,255,255,0.18); color:#ffffff; cursor:pointer;">&#10094;</button>
+    <button type="button" data-sb-slider-next aria-label="Next slide" style="position:absolute; top:50%; right:14px; transform:translateY(-50%); width:42px; height:42px; border-radius:999px; border:0; background:rgba(255,255,255,0.18); color:#ffffff; cursor:pointer;">&#10095;</button>`
+        : ""
+    }
+  </div>
+  ${
+    showDots
+      ? `<div style="display:flex; justify-content:center; gap:6px; margin-top:10px;">
+    ${normalizedSlides
+      .map(
+        (_slide, index) =>
+          `<button type="button" data-sb-slider-dot aria-label="Go to slide ${
+            index + 1
+          }" style="width:10px; height:10px; border-radius:999px; border:0; background:#0f172a; opacity:${
+            index === 0 ? "1" : "0.35"
+          }; cursor:pointer;"></button>`,
+      )
+      .join("\n    ")}
+  </div>`
+      : ""
+  }
+</div>`;
+    }
+
+    case "product_card": {
+      const productHandle = toStringValue(content.productHandle).trim();
+      if (!productHandle) {
+        return `<div style="padding:18px; border:1px dashed #cbd5e1; border-radius:18px; color:#64748b;">Add a product handle in Shop Builder to show a real product.</div>`;
+      }
+
+      return `{% assign sb_product = all_products['${productHandle}'] %}
+{% if sb_product != blank %}
+  <div style="border:1px solid #e2e8f0; border-radius:18px; overflow:hidden; background:#ffffff;">
+    <a href="{{ sb_product.url }}" style="display:block; color:inherit; text-decoration:none;">
+      {% if sb_product.featured_image != blank %}
+        <div style="aspect-ratio:${getAspectRatio(
+          toStringValue(content.imageRatio, "square"),
+        )}; overflow:hidden; background:#f8fafc;">
+          <img src="{{ sb_product.featured_image | image_url: width: 1200 }}" alt="{{ sb_product.title | escape }}" loading="lazy" style="width:100%; height:100%; object-fit:cover; display:block;">
+        </div>
+      {% endif %}
+      <div style="padding:16px;">
+        ${
+          toBoolean(content.showVendor)
+            ? `<div style="font-size:12px; color:#64748b;">{{ sb_product.vendor }}</div>`
+            : ""
+        }
+        ${
+          toBoolean(content.showTitle, true)
+            ? `<div style="margin-top:4px; font-size:18px; font-weight:600; color:#0f172a;">{{ sb_product.title }}</div>`
+            : ""
+        }
+        ${
+          toBoolean(content.showRating)
+            ? `<div style="margin-top:8px; color:#f59e0b; letter-spacing:0.12em;">&#9733;&#9733;&#9733;&#9733;&#9733;</div>`
+            : ""
+        }
+        ${
+          toBoolean(content.showPrice, true)
+            ? `<div style="margin-top:8px; color:#334155;">{{ sb_product.price | money }}</div>`
+            : ""
+        }
+      </div>
+    </a>
+    ${
+      toBoolean(content.showAddToCart, true)
+        ? `{% if sb_product.selected_or_first_available_variant != blank %}
+      <form method="post" action="/cart/add" style="padding:0 16px 16px;">
+        <input type="hidden" name="id" value="{{ sb_product.selected_or_first_available_variant.id }}">
+        <button type="submit" style="width:100%; padding:12px 16px; border:0; border-radius:999px; background:#111111; color:#ffffff; font-weight:600; cursor:pointer;">Add to cart</button>
+      </form>
+    {% endif %}`
+        : ""
+    }
+  </div>
+{% else %}
+  <div style="padding:18px; border:1px dashed #cbd5e1; border-radius:18px; color:#64748b;">Product handle <strong>${escapeHtml(
+        productHandle,
+      )}</strong> was not found in this store.</div>
+{% endif %}`;
+    }
+
+    case "product_grid": {
+      const collectionHandle = toStringValue(
+        content.collectionId || content.collectionHandle,
+      ).trim();
+      if (!collectionHandle) {
+        return `<div style="padding:18px; border:1px dashed #cbd5e1; border-radius:18px; color:#64748b;">Add a collection handle in Shop Builder to show products here.</div>`;
+      }
+
+      const columns = Math.max(
+        1,
+        Math.min(4, toNumber(getResponsiveValue(content.columns, 3), 3)),
+      );
+      const tabletColumns = isRecord(content.columns)
+        ? Math.max(1, Math.min(4, toNumber(content.columns.tablet, columns)))
+        : Math.min(2, columns);
+      const mobileColumns = isRecord(content.columns)
+        ? Math.max(1, Math.min(4, toNumber(content.columns.mobile, 1)))
+        : 1;
+      const limit = Math.max(1, Math.min(24, toNumber(content.limit, 8)));
+
+      return `{% assign sb_collection = collections['${collectionHandle}'] %}
+{% if sb_collection != blank %}
+  <div data-sb-grid style="--sb-grid-columns:${columns}; --sb-grid-columns-tablet:${tabletColumns}; --sb-grid-columns-mobile:${mobileColumns};">
+    {% for product in sb_collection.products limit: ${limit} %}
+      <a href="{{ product.url }}" style="display:block; border:1px solid #e2e8f0; border-radius:16px; overflow:hidden; background:#ffffff; text-decoration:none; color:inherit;">
+        {% if product.featured_image != blank %}
+          <div style="aspect-ratio:1 / 1; overflow:hidden; background:#f8fafc;">
+            <img src="{{ product.featured_image | image_url: width: 900 }}" alt="{{ product.title | escape }}" loading="lazy" style="width:100%; height:100%; object-fit:cover; display:block;">
+          </div>
+        {% endif %}
+        <div style="padding:14px;">
+          <div style="font-weight:600; color:#0f172a;">{{ product.title }}</div>
+          <div style="margin-top:6px; color:#334155;">{{ product.price | money }}</div>
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+  ${
+    toBoolean(content.showPagination)
+      ? `<div style="margin-top:14px; text-align:center;">
+    <a href="{{ sb_collection.url }}" style="display:inline-flex; align-items:center; justify-content:center; padding:12px 18px; border-radius:999px; border:1px solid #cbd5e1; color:#0f172a; text-decoration:none; font-weight:600;">View collection</a>
+  </div>`
+      : ""
+  }
+{% else %}
+  <div style="padding:18px; border:1px dashed #cbd5e1; border-radius:18px; color:#64748b;">Collection handle <strong>${escapeHtml(
+        collectionHandle,
+      )}</strong> was not found in this store.</div>
+{% endif %}`;
+    }
+
+    case "collection": {
+      const collectionHandle = toStringValue(content.collectionHandle).trim();
+      if (!collectionHandle) {
+        return `<div style="padding:18px; border:1px dashed #cbd5e1; border-radius:18px; color:#64748b;">Add a collection handle in Shop Builder to show this collection.</div>`;
+      }
+
+      const columns = Math.max(
+        1,
+        Math.min(4, toNumber(getResponsiveValue(content.columns, 3), 3)),
+      );
+      const tabletColumns = isRecord(content.columns)
+        ? Math.max(1, Math.min(4, toNumber(content.columns.tablet, columns)))
+        : Math.min(2, columns);
+      const mobileColumns = isRecord(content.columns)
+        ? Math.max(1, Math.min(4, toNumber(content.columns.mobile, 1)))
+        : 1;
+      const limit = Math.max(1, Math.min(24, toNumber(content.limit, 6)));
+
+      return `{% assign sb_collection = collections['${collectionHandle}'] %}
+{% if sb_collection != blank %}
+  <div style="display:flex; flex-direction:column; gap:18px;">
+    <a href="{{ sb_collection.url }}" style="display:block; border:1px solid #e2e8f0; border-radius:18px; overflow:hidden; background:#ffffff; text-decoration:none; color:inherit;">
+      {% if sb_collection.image != blank %}
+        <div style="aspect-ratio:${getAspectRatio(
+          toStringValue(content.imageRatio, "square"),
+        )}; overflow:hidden; background:#f8fafc;">
+          <img src="{{ sb_collection.image | image_url: width: 1200 }}" alt="{{ sb_collection.title | escape }}" loading="lazy" style="width:100%; height:100%; object-fit:cover; display:block;">
+        </div>
+      {% endif %}
+      <div style="padding:18px;">
+        ${
+          toBoolean(content.showTitle, true)
+            ? `<div style="font-size:22px; font-weight:700; color:#0f172a;">{{ sb_collection.title }}</div>`
+            : ""
+        }
+        ${
+          toBoolean(content.showProductCount)
+            ? `<div style="margin-top:8px; color:#64748b;">{{ sb_collection.products_count }} products</div>`
+            : ""
+        }
+      </div>
+    </a>
+    <div data-sb-grid style="--sb-grid-columns:${columns}; --sb-grid-columns-tablet:${tabletColumns}; --sb-grid-columns-mobile:${mobileColumns};">
+      {% for product in sb_collection.products limit: ${limit} %}
+        <a href="{{ product.url }}" style="display:block; border:1px solid #e2e8f0; border-radius:16px; overflow:hidden; background:#ffffff; text-decoration:none; color:inherit;">
+          {% if product.featured_image != blank %}
+            <div style="aspect-ratio:1 / 1; overflow:hidden; background:#f8fafc;">
+              <img src="{{ product.featured_image | image_url: width: 900 }}" alt="{{ product.title | escape }}" loading="lazy" style="width:100%; height:100%; object-fit:cover; display:block;">
+            </div>
+          {% endif %}
+          <div style="padding:14px;">
+            <div style="font-weight:600; color:#0f172a;">{{ product.title }}</div>
+            <div style="margin-top:6px; color:#334155;">{{ product.price | money }}</div>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+{% else %}
+  <div style="padding:18px; border:1px dashed #cbd5e1; border-radius:18px; color:#64748b;">Collection handle <strong>${escapeHtml(
+        collectionHandle,
+      )}</strong> was not found in this store.</div>
+{% endif %}`;
+    }
+
+    default:
+      return `<div style="padding:14px; border-radius:14px; background:#fff7ed; color:#9a3412;">Unsupported builder element type: ${escapeHtml(
+        element.type,
+      )}</div>`;
+  }
 }
 
 export function buildThemeSectionLiquid({
@@ -75,193 +895,82 @@ export function buildThemeSectionLiquid({
   displayName: string;
   containerWidth: number;
 }) {
-  const schemaSettings: SchemaSetting[] = [
-    { type: "header", content: "Section styles" },
-    colorSetting(
-      "pb_background_color",
-      "Background color",
-      section.settings.backgroundColor.desktop,
-    ),
-    {
-      type: "image_picker",
-      id: "pb_background_image",
-      label: "Background image",
-    },
-    textSetting(
-      "pb_background_image_url",
-      "Fallback background image URL",
-      section.settings.backgroundImage || "",
-    ),
-    rangeSetting(
-      "pb_container_width",
-      "Container width",
-      600,
-      1800,
-      20,
-      containerWidth,
-    ),
-    {
-      type: "checkbox",
-      id: "pb_full_width",
-      label: "Full width",
-      default: section.settings.fullWidth,
-    },
-    rangeSetting(
-      "pb_padding_top",
-      "Padding top",
-      0,
-      200,
-      4,
-      section.settings.paddingTop.desktop,
-    ),
-    rangeSetting(
-      "pb_padding_bottom",
-      "Padding bottom",
-      0,
-      200,
-      4,
-      section.settings.paddingBottom.desktop,
-    ),
-    rangeSetting(
-      "pb_padding_left",
-      "Padding left",
-      0,
-      120,
-      4,
-      section.settings.paddingLeft.desktop,
-    ),
-    rangeSetting(
-      "pb_padding_right",
-      "Padding right",
-      0,
-      120,
-      4,
-      section.settings.paddingRight.desktop,
-    ),
-    rangeSetting(
-      "pb_margin_top",
-      "Margin top",
-      0,
-      160,
-      4,
-      section.settings.marginTop.desktop,
-    ),
-    rangeSetting(
-      "pb_margin_bottom",
-      "Margin bottom",
-      0,
-      160,
-      4,
-      section.settings.marginBottom.desktop,
-    ),
-    rangeSetting(
-      "pb_border_radius",
-      "Border radius",
-      0,
-      80,
-      2,
-      section.settings.borderRadius,
-    ),
-    rangeSetting(
-      "pb_border_width",
-      "Border width",
-      0,
-      12,
-      1,
-      section.settings.borderWidth,
-    ),
-    colorSetting(
-      "pb_border_color",
-      "Border color",
-      section.settings.borderColor,
-    ),
-    selectSetting(
-      "pb_border_style",
-      "Border style",
-      section.settings.borderStyle,
-      [
-        { value: "solid", label: "Solid" },
-        { value: "dashed", label: "Dashed" },
-        { value: "dotted", label: "Dotted" },
-        { value: "double", label: "Double" },
-      ],
-    ),
-    textSetting(
-      "pb_custom_class",
-      "Custom class",
-      section.settings.customClass,
-    ),
-    textSetting("pb_anchor_id", "Anchor ID", section.settings.customId),
-    textareaSetting("pb_custom_css", "Custom CSS", section.settings.customCss),
-  ];
+  const schema = buildSectionSchema({ displayName, section, containerWidth });
+  const backgroundImage = toStringValue(section.settings.backgroundImage).trim();
+  const sectionRootStyles = joinStyles([
+    "background-color:{{ section.settings.sb_background_color }};",
+    `padding:{{ section.settings.sb_padding_top }}px ${section.settings.paddingRight.desktop}px {{ section.settings.sb_padding_bottom }}px ${section.settings.paddingLeft.desktop}px;`,
+    `margin:${section.settings.marginTop.desktop}px 0 ${section.settings.marginBottom.desktop}px;`,
+    section.settings.minHeight.desktop
+      ? `min-height:${section.settings.minHeight.desktop}px;`
+      : "",
+    section.settings.borderWidth > 0
+      ? `border:${section.settings.borderWidth}px ${section.settings.borderStyle} ${section.settings.borderColor};`
+      : "",
+    section.settings.borderRadius > 0
+      ? `border-radius:${section.settings.borderRadius}px;`
+      : "",
+    backgroundImage
+      ? `background-image:url('${escapeCssUrl(backgroundImage)}'); background-size:${escapeAttribute(section.settings.backgroundSize || "cover")}; background-position:${escapeAttribute(section.settings.backgroundPosition || "center")}; background-repeat:no-repeat;`
+      : "",
+  ]);
 
-  const markup = section.columns
+  const columnsMarkup = section.columns
     .map((column, columnIndex) => {
-      const columnMarkup = column.elements
+      const columnStyles = joinStyles([
+        `--sb-column-width-desktop:${column.width.desktop}%;`,
+        `--sb-column-width-tablet:${column.width.tablet}%;`,
+        `--sb-column-width-mobile:${column.width.mobile}%;`,
+        "width:var(--sb-column-width-desktop);",
+        "display:flex;",
+        "flex-direction:column;",
+        `justify-content:${getColumnAlignment(column.settings.verticalAlign)};`,
+        `padding:${column.settings.paddingTop.desktop}px ${column.settings.paddingRight.desktop}px ${column.settings.paddingBottom.desktop}px ${column.settings.paddingLeft.desktop}px;`,
+        column.settings.backgroundColor !== "transparent"
+          ? `background:${column.settings.backgroundColor};`
+          : "",
+        "box-sizing:border-box;",
+        "min-width:0;",
+      ]);
+
+      const elementsMarkup = column.elements
         .map((element, elementIndex) =>
           buildElementMarkup({
             element,
-            schemaSettings,
             columnIndex,
             elementIndex,
           }),
         )
         .join("\n");
 
-      const columnStyle = [
-        `width:${column.width.desktop}%`,
-        `padding:${column.settings.paddingTop.desktop}px ${column.settings.paddingRight.desktop}px ${column.settings.paddingBottom.desktop}px ${column.settings.paddingLeft.desktop}px`,
-        `background-color:${column.settings.backgroundColor}`,
-      ].join("; ");
-
-      return `<div class="sb-native-column sb-native-column--${columnIndex + 1}" style="${columnStyle}">
-  ${columnMarkup}
+      return `<div class="sb-native-column sb-native-column--${columnIndex + 1}" style="${escapeAttribute(columnStyles)}">
+  ${elementsMarkup}
 </div>`;
     })
     .join("\n");
 
-  const schema = {
-    name: displayName,
-    settings: schemaSettings,
-    presets: [{ name: displayName }],
-  };
+  const customClass = toStringValue(section.settings.customClass).trim();
+  const customId = toStringValue(section.settings.customId).trim();
+  const customCss = toStringValue(section.settings.customCss).trim();
 
   return `
-{% assign sb_anchor_id = section.settings.pb_anchor_id | strip %}
+<section id="shopbuilder-section-{{ section.id }}"${customId ? ` data-custom-id="${escapeAttribute(customId)}"` : ""} class="shopbuilder-native-section${customClass ? ` ${escapeAttribute(customClass)}` : ""}" style="${escapeAttribute(sectionRootStyles)}">
+  <div class="sb-native-container" style="max-width:{% if section.settings.sb_full_width %}100%{% else %}{{ section.settings.sb_container_width }}px{% endif %}; margin:0 auto;">
+    <div class="sb-native-columns" style="display:flex; flex-wrap:wrap; align-items:stretch;">
+      ${columnsMarkup}
+    </div>
+  </div>
+</section>
+
 <style>
-  #shopbuilder-section-{{ section.id }} {
-    background-color: {{ section.settings.pb_background_color }};
-    padding: {{ section.settings.pb_padding_top }}px {{ section.settings.pb_padding_right }}px {{ section.settings.pb_padding_bottom }}px {{ section.settings.pb_padding_left }}px;
-    margin: {{ section.settings.pb_margin_top }}px 0 {{ section.settings.pb_margin_bottom }}px;
-    border-radius: {{ section.settings.pb_border_radius }}px;
-    {% if section.settings.pb_border_width > 0 %}
-      border: {{ section.settings.pb_border_width }}px {{ section.settings.pb_border_style }} {{ section.settings.pb_border_color }};
-    {% endif %}
-    {% if section.settings.pb_background_image != blank %}
-      background-image: url({{ section.settings.pb_background_image | image_url: width: 2400 }});
-    {% elsif section.settings.pb_background_image_url != blank %}
-      background-image: url({{ section.settings.pb_background_image_url }});
-    {% endif %}
-    background-size: cover;
-    background-position: center;
-  }
-
-  #shopbuilder-section-{{ section.id }} .sb-native-container {
-    max-width: {% if section.settings.pb_full_width %}100%{% else %}{{ section.settings.pb_container_width }}px{% endif %};
-    margin: 0 auto;
-  }
-
-  #shopbuilder-section-{{ section.id }} .sb-native-columns {
-    display: flex;
-    flex-wrap: wrap;
-  }
-
-  #shopbuilder-section-{{ section.id }} .sb-native-column {
+  #shopbuilder-section-{{ section.id }} * {
     box-sizing: border-box;
   }
 
-  #shopbuilder-section-{{ section.id }} .sb-native-element {
-    box-sizing: border-box;
+  #shopbuilder-section-{{ section.id }} [data-sb-grid] {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(var(--sb-grid-columns, 1), minmax(0, 1fr));
   }
 
   #shopbuilder-section-{{ section.id }} [data-sb-accordion-panel][hidden],
@@ -277,25 +986,28 @@ export function buildThemeSectionLiquid({
     display: flex;
   }
 
-  {% if section.settings.pb_custom_css != blank %}
-    #shopbuilder-section-{{ section.id }} {
-      {{ section.settings.pb_custom_css }}
+  ${customCss ? `#shopbuilder-section-{{ section.id }} { ${customCss} }` : ""}
+
+  @media screen and (max-width: 989px) {
+    #shopbuilder-section-{{ section.id }} .sb-native-column {
+      width: var(--sb-column-width-tablet, var(--sb-column-width-desktop)) !important;
     }
-  {% endif %}
+
+    #shopbuilder-section-{{ section.id }} [data-sb-grid] {
+      grid-template-columns: repeat(var(--sb-grid-columns-tablet, var(--sb-grid-columns, 1)), minmax(0, 1fr));
+    }
+  }
+
   @media screen and (max-width: 749px) {
     #shopbuilder-section-{{ section.id }} .sb-native-column {
-      width: 100% !important;
+      width: var(--sb-column-width-mobile, 100%) !important;
+    }
+
+    #shopbuilder-section-{{ section.id }} [data-sb-grid] {
+      grid-template-columns: repeat(var(--sb-grid-columns-mobile, 1), minmax(0, 1fr));
     }
   }
 </style>
-
-<section id="shopbuilder-section-{{ section.id }}" class="shopbuilder-native-section {{ section.settings.pb_custom_class }}"{% if sb_anchor_id != blank %} data-anchor-id="{{ sb_anchor_id }}"{% endif %}>
-  <div class="sb-native-container">
-    <div class="sb-native-columns">
-      ${markup}
-    </div>
-  </div>
-</section>
 
 <script>
   (() => {
@@ -316,6 +1028,7 @@ export function buildThemeSectionLiquid({
             const item = trigger.closest("[data-sb-accordion-item]");
             if (!item) return;
 
+            const icon = trigger.querySelector("span:last-child");
             const nextOpen = !item.classList.contains("is-open");
 
             if (!allowMultiple) {
@@ -327,8 +1040,10 @@ export function buildThemeSectionLiquid({
                 const button = candidate.querySelector(
                   "[data-sb-accordion-trigger]",
                 );
+                const buttonIcon = button?.querySelector("span:last-child");
                 if (panel) panel.hidden = true;
                 if (button) button.setAttribute("aria-expanded", "false");
+                if (buttonIcon) buttonIcon.textContent = "+";
               });
             }
 
@@ -336,6 +1051,7 @@ export function buildThemeSectionLiquid({
             const panel = item.querySelector("[data-sb-accordion-panel]");
             if (panel) panel.hidden = !nextOpen;
             trigger.setAttribute("aria-expanded", String(nextOpen));
+            if (icon) icon.textContent = nextOpen ? "-" : "+";
           });
         });
     });
@@ -343,15 +1059,14 @@ export function buildThemeSectionLiquid({
     root.querySelectorAll("[data-sb-tabs]").forEach((tabs) => {
       const buttons = Array.from(tabs.querySelectorAll("[data-sb-tab-button]"));
       const panels = Array.from(tabs.querySelectorAll("[data-sb-tab-panel]"));
+      const activeColor = tabs.getAttribute("data-active-color") || "#111111";
+      const inactiveColor =
+        tabs.getAttribute("data-inactive-color") || "#64748b";
 
       const activate = (tabId) => {
         buttons.forEach((button) => {
           const isActive =
             button.getAttribute("data-sb-tab-button") === tabId;
-          const activeColor =
-            button.getAttribute("data-active-color") || "#111111";
-          const inactiveColor =
-            button.getAttribute("data-inactive-color") || "#64748b";
           button.style.color = isActive ? activeColor : inactiveColor;
           button.style.borderBottomColor = isActive
             ? activeColor
@@ -378,6 +1093,7 @@ export function buildThemeSectionLiquid({
     root.querySelectorAll("[data-sb-countdown]").forEach((countdown) => {
       const targetDate = countdown.getAttribute("data-target-date");
       const expiredText = countdown.getAttribute("data-expired-text") || "";
+      const redirectUrl = countdown.getAttribute("data-redirect-url") || "";
       if (!targetDate) return;
 
       const target = new Date(targetDate).getTime();
@@ -385,6 +1101,7 @@ export function buildThemeSectionLiquid({
         countdown.querySelectorAll("[data-sb-count-part]"),
       );
       const expiredNode = countdown.querySelector("[data-sb-count-expired]");
+      let hasRedirected = false;
 
       const render = () => {
         const distance = Math.max(0, target - Date.now());
@@ -401,8 +1118,12 @@ export function buildThemeSectionLiquid({
           part.textContent = String(value).padStart(2, "0");
         });
 
-        if (distance <= 0 && expiredNode && expiredText) {
-          expiredNode.hidden = false;
+        if (distance <= 0) {
+          if (expiredNode && expiredText) expiredNode.hidden = false;
+          if (redirectUrl && !hasRedirected) {
+            hasRedirected = true;
+            window.location.assign(redirectUrl);
+          }
         }
       };
 
@@ -419,8 +1140,12 @@ export function buildThemeSectionLiquid({
     });
 
     root.querySelectorAll("[data-sb-slider]").forEach((slider) => {
-      const slides = Array.from(slider.querySelectorAll("[data-sb-slider-slide]"));
+      const slides = Array.from(
+        slider.querySelectorAll("[data-sb-slider-slide]"),
+      );
       const dots = Array.from(slider.querySelectorAll("[data-sb-slider-dot]"));
+      const prev = slider.querySelector("[data-sb-slider-prev]");
+      const next = slider.querySelector("[data-sb-slider-next]");
       if (!slides.length) return;
 
       let current = 0;
@@ -429,12 +1154,12 @@ export function buildThemeSectionLiquid({
       const speed = Number(slider.getAttribute("data-speed") || 5000);
 
       const showSlide = (index) => {
-        current = index;
+        current = (index + slides.length) % slides.length;
         slides.forEach((slide, slideIndex) => {
           slide.classList.toggle("is-active", slideIndex === current);
         });
         dots.forEach((dot, dotIndex) => {
-          dot.style.opacity = dotIndex === current ? "1" : "0.4";
+          dot.style.opacity = dotIndex === current ? "1" : "0.35";
         });
       };
 
@@ -442,8 +1167,12 @@ export function buildThemeSectionLiquid({
         if (!autoplay || slides.length < 2) return;
         if (timer) clearInterval(timer);
         timer = setInterval(() => {
-          showSlide((current + 1) % slides.length);
+          showSlide(current + 1);
         }, Math.max(speed, 1200));
+      };
+
+      const stopTimer = () => {
+        if (timer) clearInterval(timer);
       };
 
       dots.forEach((dot, index) => {
@@ -452,6 +1181,19 @@ export function buildThemeSectionLiquid({
           startTimer();
         });
       });
+
+      prev?.addEventListener("click", () => {
+        showSlide(current - 1);
+        startTimer();
+      });
+
+      next?.addEventListener("click", () => {
+        showSlide(current + 1);
+        startTimer();
+      });
+
+      slider.addEventListener("mouseenter", stopTimer);
+      slider.addEventListener("mouseleave", startTimer);
 
       showSlide(0);
       startTimer();
@@ -465,1020 +1207,48 @@ ${JSON.stringify(schema, null, 2)}
 `.trim();
 }
 
-function buildElementMarkup({
-  element,
-  schemaSettings,
-  columnIndex,
-  elementIndex,
+function stripThemeSchema(liquid: string) {
+  return liquid
+    .replace(/\s*\{% schema %\}[\s\S]*?\{% endschema %\}\s*$/u, "")
+    .trim();
+}
+
+export function buildThemeAppProxyLiquid({
+  section,
+  displayName,
+  containerWidth,
+  instanceId,
 }: {
-  element: Element;
-  schemaSettings: SchemaSetting[];
-  columnIndex: number;
-  elementIndex: number;
+  section: Section;
+  displayName: string;
+  containerWidth: number;
+  instanceId?: string;
 }) {
-  const prefix = `pb_c${columnIndex + 1}_e${elementIndex + 1}`;
-  const labelPrefix = `Column ${columnIndex + 1} block ${elementIndex + 1}`;
-  const settings = (element as any).settings;
-  const content = (element as any).content || {};
-  const elementId = `${prefix}_id`;
-  const customCssId = `${prefix}_custom_css`;
+  const rootId = `shopbuilder-proxy-${sanitizeClassName(
+    instanceId || displayName || "section",
+  )}`.slice(0, 80);
+  const nativeLiquid = buildThemeSectionLiquid({
+    section,
+    displayName,
+    containerWidth,
+  });
 
-  schemaSettings.push(
-    textSetting(elementId, `${labelPrefix} custom ID`, settings.customId || ""),
-  );
-  schemaSettings.push(
-    textareaSetting(
-      customCssId,
-      `${labelPrefix} custom CSS`,
-      settings.customCss || "",
-    ),
-  );
-
-  const wrapperStyles = [
-    `margin:${settings.marginTop.desktop}px ${settings.marginRight.desktop}px ${settings.marginBottom.desktop}px ${settings.marginLeft.desktop}px`,
-    `padding:${settings.paddingTop.desktop}px ${settings.paddingRight.desktop}px ${settings.paddingBottom.desktop}px ${settings.paddingLeft.desktop}px`,
-    `width:${settings.width.desktop}`,
-    `text-align:${settings.textAlign.desktop}`,
-    settings.backgroundColor !== "transparent"
-      ? `background-color:${settings.backgroundColor}`
-      : "",
-    settings.borderWidth
-      ? `border:${settings.borderWidth}px ${settings.borderStyle} ${settings.borderColor}; border-radius:${settings.borderRadius}px`
-      : "",
-  ]
-    .filter(Boolean)
-    .join("; ");
-
-  const open = `<div id="shopbuilder-${prefix}-{{ section.id }}"{% if section.settings.${elementId} != blank %} data-custom-id="{{ section.settings.${elementId} }}"{% endif %} class="sb-native-element sb-native-element--${element.type} sb-native-element--${elementIndex + 1}" style="${wrapperStyles}">
-{% if section.settings.${customCssId} != blank %}
-  <style>
-    #shopbuilder-${prefix}-{{ section.id }} {
-      {{ section.settings.${customCssId} }}
-    }
-  </style>
-{% endif %}`;
-
-  switch ((element as any).type) {
-    case "heading": {
-      const textId = `${prefix}_text`;
-      const tagId = `${prefix}_tag`;
-      const colorId = `${prefix}_color`;
-      const sizeId = `${prefix}_size`;
-      const weightId = `${prefix}_weight`;
-
-      schemaSettings.push(
-        textSetting(textId, `${labelPrefix} heading text`, content.text || ""),
-      );
-      schemaSettings.push(
-        selectSetting(
-          tagId,
-          `${labelPrefix} heading tag`,
-          content.tag || "h2",
-          [
-            { value: "h1", label: "H1" },
-            { value: "h2", label: "H2" },
-            { value: "h3", label: "H3" },
-            { value: "h4", label: "H4" },
-          ],
-        ),
-      );
-      schemaSettings.push(
-        colorSetting(
-          colorId,
-          `${labelPrefix} text color`,
-          content.color || "#111111",
-        ),
-      );
-      schemaSettings.push(
-        rangeSetting(
-          sizeId,
-          `${labelPrefix} font size`,
-          14,
-          96,
-          1,
-          content.fontSize?.desktop || 32,
-        ),
-      );
-      schemaSettings.push(
-        selectSetting(
-          weightId,
-          `${labelPrefix} font weight`,
-          String(content.fontWeight || "700"),
-          [
-            { value: "400", label: "Regular" },
-            { value: "500", label: "Medium" },
-            { value: "600", label: "Semi bold" },
-            { value: "700", label: "Bold" },
-            { value: "800", label: "Extra bold" },
-          ],
-        ),
-      );
-
-      return `${open}
-{% case section.settings.${tagId} %}
-  {% when 'h1' %}
-    <h1 style="font-size:{{ section.settings.${sizeId} }}px; color:{{ section.settings.${colorId} }}; font-weight:{{ section.settings.${weightId} }};">{{ section.settings.${textId} }}</h1>
-  {% when 'h2' %}
-    <h2 style="font-size:{{ section.settings.${sizeId} }}px; color:{{ section.settings.${colorId} }}; font-weight:{{ section.settings.${weightId} }};">{{ section.settings.${textId} }}</h2>
-  {% when 'h3' %}
-    <h3 style="font-size:{{ section.settings.${sizeId} }}px; color:{{ section.settings.${colorId} }}; font-weight:{{ section.settings.${weightId} }};">{{ section.settings.${textId} }}</h3>
-  {% else %}
-    <h4 style="font-size:{{ section.settings.${sizeId} }}px; color:{{ section.settings.${colorId} }}; font-weight:{{ section.settings.${weightId} }};">{{ section.settings.${textId} }}</h4>
-{% endcase %}
-</div>`;
-    }
-
-    case "text": {
-      const richTextId = `${prefix}_content`;
-      schemaSettings.push({
-        type: "richtext",
-        id: richTextId,
-        label: `${labelPrefix} text content`,
-        default: content.html || "<p>Text content</p>",
-      });
-      return `${open}
-  {{ section.settings.${richTextId} }}
-</div>`;
-    }
-
-    case "image": {
-      const imageId = `${prefix}_image`;
-      const urlId = `${prefix}_image_url`;
-      const altId = `${prefix}_alt`;
-      const linkId = `${prefix}_link`;
-      const radiusId = `${prefix}_radius`;
-      schemaSettings.push({
-        type: "image_picker",
-        id: imageId,
-        label: `${labelPrefix} image`,
-      });
-      schemaSettings.push(
-        textSetting(
-          urlId,
-          `${labelPrefix} fallback image URL`,
-          content.src || "",
-        ),
-      );
-      schemaSettings.push(
-        textSetting(altId, `${labelPrefix} alt text`, content.alt || ""),
-      );
-      schemaSettings.push({
-        type: "url",
-        id: linkId,
-        label: `${labelPrefix} link URL`,
-      });
-      schemaSettings.push(
-        rangeSetting(
-          radiusId,
-          `${labelPrefix} image radius`,
-          0,
-          60,
-          2,
-          settings.borderRadius || 0,
-        ),
-      );
-      return `${open}
-{% assign sb_image = section.settings.${imageId} %}
-{% capture sb_image_markup %}
-  {% if sb_image != blank %}
-    <img src="{{ sb_image | image_url: width: 1600 }}" alt="{{ section.settings.${altId} }}" loading="lazy" style="width:100%; display:block; border-radius:{{ section.settings.${radiusId} }}px;">
-  {% elsif section.settings.${urlId} != blank %}
-    <img src="{{ section.settings.${urlId} }}" alt="{{ section.settings.${altId} }}" loading="lazy" style="width:100%; display:block; border-radius:{{ section.settings.${radiusId} }}px;">
-  {% endif %}
-{% endcapture %}
-{% if section.settings.${linkId} != blank %}
-  <a href="{{ section.settings.${linkId} }}">{{ sb_image_markup }}</a>
-{% else %}
-  {{ sb_image_markup }}
-{% endif %}
-</div>`;
-    }
-
-    case "button": {
-      const textId = `${prefix}_text`;
-      const urlId = `${prefix}_url`;
-      const bgId = `${prefix}_bg`;
-      const textColorId = `${prefix}_text_color`;
-      const borderColorId = `${prefix}_border_color`;
-      const sizeId = `${prefix}_size`;
-      schemaSettings.push(
-        textSetting(
-          textId,
-          `${labelPrefix} button text`,
-          content.text || "Button",
-        ),
-      );
-      schemaSettings.push({
-        type: "url",
-        id: urlId,
-        label: `${labelPrefix} button URL`,
-      });
-      schemaSettings.push(
-        colorSetting(
-          bgId,
-          `${labelPrefix} button background`,
-          content.backgroundColor || "#111111",
-        ),
-      );
-      schemaSettings.push(
-        colorSetting(
-          textColorId,
-          `${labelPrefix} button text color`,
-          content.textColor || "#ffffff",
-        ),
-      );
-      schemaSettings.push(
-        colorSetting(
-          borderColorId,
-          `${labelPrefix} button border color`,
-          content.borderColor || "#111111",
-        ),
-      );
-      schemaSettings.push(
-        selectSetting(
-          sizeId,
-          `${labelPrefix} button size`,
-          content.size || "medium",
-          [
-            { value: "small", label: "Small" },
-            { value: "medium", label: "Medium" },
-            { value: "large", label: "Large" },
-          ],
-        ),
-      );
-      return `${open}
-  <a href="{{ section.settings.${urlId} }}" style="display:inline-block; text-decoration:none; font-weight:600; background-color:{{ section.settings.${bgId} }}; color:{{ section.settings.${textColorId} }}; border:2px solid {{ section.settings.${borderColorId} }}; border-radius:6px; padding:{% case section.settings.${sizeId} %}{% when 'small' %}8px 16px{% when 'large' %}16px 36px{% else %}12px 24px{% endcase %};">
-    {{ section.settings.${textId} }}
-  </a>
-</div>`;
-    }
-
-    case "divider": {
-      const colorId = `${prefix}_color`;
-      const thicknessId = `${prefix}_thickness`;
-      const widthId = `${prefix}_width`;
-      const alignmentId = `${prefix}_alignment`;
-      const styleId = `${prefix}_style`;
-      schemaSettings.push(
-        colorSetting(
-          colorId,
-          `${labelPrefix} divider color`,
-          content.color || "#e5e7eb",
-        ),
-      );
-      schemaSettings.push(
-        rangeSetting(
-          thicknessId,
-          `${labelPrefix} thickness`,
-          1,
-          12,
-          1,
-          content.thickness || 1,
-        ),
-      );
-      schemaSettings.push(
-        rangeSetting(
-          widthId,
-          `${labelPrefix} width`,
-          10,
-          100,
-          1,
-          content.width || 100,
-        ),
-      );
-      schemaSettings.push(
-        selectSetting(
-          alignmentId,
-          `${labelPrefix} alignment`,
-          content.alignment || "center",
-          [
-            { value: "left", label: "Left" },
-            { value: "center", label: "Center" },
-            { value: "right", label: "Right" },
-          ],
-        ),
-      );
-      schemaSettings.push(
-        selectSetting(
-          styleId,
-          `${labelPrefix} style`,
-          content.style || "solid",
-          [
-            { value: "solid", label: "Solid" },
-            { value: "dashed", label: "Dashed" },
-            { value: "dotted", label: "Dotted" },
-          ],
-        ),
-      );
-      return `${open}
-  <div style="display:flex; justify-content:{% case section.settings.${alignmentId} %}{% when 'left' %}flex-start{% when 'right' %}flex-end{% else %}center{% endcase %};">
-    <div style="width:{{ section.settings.${widthId} }}%; border-top:{{ section.settings.${thicknessId} }}px {{ section.settings.${styleId} }} {{ section.settings.${colorId} }};"></div>
-  </div>
-</div>`;
-    }
-
-    case "spacer": {
-      const heightId = `${prefix}_height`;
-      schemaSettings.push(
-        rangeSetting(
-          heightId,
-          `${labelPrefix} height`,
-          0,
-          240,
-          4,
-          content.height?.desktop || 40,
-        ),
-      );
-      return `${open}
-  <div style="height:{{ section.settings.${heightId} }}px;"></div>
-</div>`;
-    }
-
-    case "html":
-    case "liquid": {
-      const liquidId = `${prefix}_liquid`;
-      schemaSettings.push({
-        type: "liquid",
-        id: liquidId,
-        label: `${labelPrefix} custom ${element.type}`,
-        default: String(
-          element.type === "html" ? content.html || "" : content.liquid || "",
-        ),
-      });
-      return `${open}
-  {{ section.settings.${liquidId} }}
-</div>`;
-    }
-
-    case "video": {
-      const urlId = `${prefix}_video_url`;
-      const aspectId = `${prefix}_aspect_ratio`;
-      const posterId = `${prefix}_poster_url`;
-      schemaSettings.push(
-        textSetting(urlId, `${labelPrefix} video URL`, content.url || ""),
-      );
-      schemaSettings.push(
-        selectSetting(
-          aspectId,
-          `${labelPrefix} aspect ratio`,
-          content.aspectRatio || "16:9",
-          [
-            { value: "16:9", label: "16:9" },
-            { value: "4:3", label: "4:3" },
-            { value: "1:1", label: "1:1" },
-            { value: "21:9", label: "21:9" },
-          ],
-        ),
-      );
-      schemaSettings.push(
-        textSetting(
-          posterId,
-          `${labelPrefix} fallback poster URL`,
-          content.posterImage || "",
-        ),
-      );
-
-      return `${open}
-{% assign sb_video_url = section.settings.${urlId} | strip %}
-{% assign sb_video_embed = sb_video_url %}
-{% if sb_video_url contains 'youtube.com/watch?v=' %}
-  {% assign sb_video_embed = sb_video_url | replace: 'watch?v=', 'embed/' %}
-{% elsif sb_video_url contains 'youtu.be/' %}
-  {% assign sb_video_embed = sb_video_url | replace: 'youtu.be/', 'youtube.com/embed/' %}
-{% elsif sb_video_url contains 'vimeo.com/' %}
-  {% assign sb_video_embed = sb_video_url | replace: 'vimeo.com/', 'player.vimeo.com/video/' %}
-{% endif %}
-{% if sb_video_url != blank %}
-  <div style="position:relative; width:100%; overflow:hidden; border-radius:12px; background:#0f172a; padding-top:{% case section.settings.${aspectId} %}{% when '1:1' %}100%{% when '4:3' %}75%{% when '21:9' %}42.85%{% else %}56.25%{% endcase %};">
-    <iframe src="{{ sb_video_embed }}" title="Video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="position:absolute; inset:0; width:100%; height:100%; border:0;"></iframe>
-  </div>
-{% elsif section.settings.${posterId} != blank %}
-  <img src="{{ section.settings.${posterId} }}" alt="" style="width:100%; display:block; border-radius:12px;">
-{% else %}
-  <div style="padding:20px; border-radius:14px; background:#0f172a; color:#e2e8f0; text-align:center;">Add a YouTube or Vimeo URL in theme settings.</div>
-{% endif %}
-</div>`;
-    }
-
-    case "map": {
-      const queryId = `${prefix}_map_query`;
-      schemaSettings.push(
-        textSetting(
-          queryId,
-          `${labelPrefix} map query`,
-          content.query || "New York, NY",
-        ),
-      );
-
-      return `${open}
-  <div style="position:relative; width:100%; padding-top:56.25%; overflow:hidden; border-radius:12px;">
-    <iframe src="https://www.google.com/maps?q={{ section.settings.${queryId} | url_encode }}&output=embed" title="Map" style="position:absolute; inset:0; width:100%; height:100%; border:0;"></iframe>
-  </div>
-</div>`;
-    }
-
-    case "icon": {
-      const iconId = `${prefix}_icon`;
-      const colorId = `${prefix}_icon_color`;
-      const sizeId = `${prefix}_icon_size`;
-      schemaSettings.push(
-        selectSetting(iconId, `${labelPrefix} icon`, content.icon || "star", [
-          { value: "star", label: "Star" },
-          { value: "circle", label: "Circle" },
-          { value: "heart", label: "Heart" },
-          { value: "check", label: "Check" },
-        ]),
-      );
-      schemaSettings.push(
-        colorSetting(
-          colorId,
-          `${labelPrefix} icon color`,
-          content.color || "#111111",
-        ),
-      );
-      schemaSettings.push(
-        rangeSetting(
-          sizeId,
-          `${labelPrefix} icon size`,
-          16,
-          120,
-          2,
-          content.size?.desktop || 40,
-        ),
-      );
-
-      return `${open}
-  <div style="display:inline-flex; align-items:center; justify-content:center; width:{{ section.settings.${sizeId} }}px; height:{{ section.settings.${sizeId} }}px; font-size:{{ section.settings.${sizeId} | divided_by: 2 }}px; color:{{ section.settings.${colorId} }};">
-    {% case section.settings.${iconId} %}
-      {% when 'star' %}&#9733;
-      {% when 'heart' %}&#9829;
-      {% when 'check' %}&#10003;
-      {% else %}&#9679;
-    {% endcase %}
-  </div>
-</div>`;
-    }
-
-    case "social_icons": {
-      const itemsId = `${prefix}_social_items`;
-      const sizeId = `${prefix}_social_size`;
-      const colorId = `${prefix}_social_color`;
-      const alignmentId = `${prefix}_social_alignment`;
-      const defaultItems = Array.isArray(content.icons)
-        ? content.icons
-            .map((item: any) => `${item.platform || "icon"}|${item.url || "#"}`)
-            .join("\n")
-        : "";
-      schemaSettings.push(
-        textareaSetting(itemsId, `${labelPrefix} social icons`, defaultItems),
-      );
-      schemaSettings.push(
-        rangeSetting(
-          sizeId,
-          `${labelPrefix} icon size`,
-          16,
-          64,
-          2,
-          content.iconSize || 24,
-        ),
-      );
-      schemaSettings.push(
-        colorSetting(
-          colorId,
-          `${labelPrefix} icon color`,
-          content.iconColor || "#111111",
-        ),
-      );
-      schemaSettings.push(
-        selectSetting(
-          alignmentId,
-          `${labelPrefix} alignment`,
-          content.alignment || "center",
-          [
-            { value: "left", label: "Left" },
-            { value: "center", label: "Center" },
-            { value: "right", label: "Right" },
-          ],
-        ),
-      );
-
-      return `${open}
-{% assign sb_social_items = section.settings.${itemsId} | newline_to_br | split: '<br />' %}
-  <div style="display:flex; flex-wrap:wrap; gap:12px; justify-content:{% case section.settings.${alignmentId} %}{% when 'left' %}flex-start{% when 'right' %}flex-end{% else %}center{% endcase %};">
-    {% for sb_social_item in sb_social_items %}
-      {% assign sb_social_line = sb_social_item | strip %}
-      {% if sb_social_line != blank %}
-        {% assign sb_social_parts = sb_social_line | split: '|' %}
-        <a href="{{ sb_social_parts[1] | strip | default: '#' }}" style="display:inline-flex; align-items:center; justify-content:center; width:{{ section.settings.${sizeId} }}px; height:{{ section.settings.${sizeId} }}px; border:1px solid #cbd5e1; border-radius:999px; color:{{ section.settings.${colorId} }}; text-decoration:none; text-transform:uppercase; font-size:10px;">
-          {{ sb_social_parts[0] | strip | slice: 0, 2 }}
-        </a>
-      {% endif %}
-    {% endfor %}
-  </div>
-</div>`;
-    }
-
-    case "testimonial": {
-      const itemsId = `${prefix}_testimonial_items`;
-      const columnsId = `${prefix}_testimonial_columns`;
-      const defaultItems = Array.isArray(content.items)
-        ? content.items
-            .map(
-              (item: any) =>
-                `${item.quote || "Quote"}|${item.author || "Author"}|${item.role || ""}`,
-            )
-            .join("\n")
-        : "";
-      schemaSettings.push(
-        textareaSetting(itemsId, `${labelPrefix} testimonials`, defaultItems),
-      );
-      schemaSettings.push(
-        rangeSetting(
-          columnsId,
-          `${labelPrefix} columns`,
-          1,
-          4,
-          1,
-          content.columns?.desktop || 3,
-        ),
-      );
-
-      return `${open}
-{% assign sb_testimonials = section.settings.${itemsId} | newline_to_br | split: '<br />' %}
-  <div style="display:grid; grid-template-columns:repeat({{ section.settings.${columnsId} }}, minmax(0, 1fr)); gap:12px;">
-    {% for sb_testimonial in sb_testimonials %}
-      {% assign sb_testimonial_line = sb_testimonial | strip %}
-      {% if sb_testimonial_line != blank %}
-        {% assign sb_testimonial_parts = sb_testimonial_line | split: '|' %}
-        <div style="border:1px solid #e2e8f0; border-radius:14px; padding:14px; background:#ffffff;">
-          <div style="font-size:13px; line-height:1.7; color:#334155;">{{ sb_testimonial_parts[0] | strip }}</div>
-          <div style="margin-top:10px; font-size:12px; color:#64748b;">{{ sb_testimonial_parts[1] | strip }}{% if sb_testimonial_parts[2] != blank %}, {{ sb_testimonial_parts[2] | strip }}{% endif %}</div>
-        </div>
-      {% endif %}
-    {% endfor %}
-  </div>
-</div>`;
-    }
-
-    case "accordion": {
-      const itemsId = `${prefix}_accordion_items`;
-      const allowMultipleId = `${prefix}_accordion_multi`;
-      const borderColorId = `${prefix}_accordion_border`;
-      const headingColorId = `${prefix}_accordion_heading`;
-      const contentColorId = `${prefix}_accordion_content`;
-      const defaultItems = Array.isArray(content.items)
-        ? content.items
-            .map(
-              (item: any) =>
-                `${item.question || "Question"}|${item.answer || "Answer"}`,
-            )
-            .join("\n")
-        : "";
-      schemaSettings.push(
-        textareaSetting(
-          itemsId,
-          `${labelPrefix} accordion items`,
-          defaultItems,
-        ),
-      );
-      schemaSettings.push(
-        checkboxSetting(
-          allowMultipleId,
-          `${labelPrefix} allow multiple open`,
-          Boolean(content.allowMultiple),
-        ),
-      );
-      schemaSettings.push(
-        colorSetting(
-          borderColorId,
-          `${labelPrefix} border color`,
-          content.borderColor || "#e5e7eb",
-        ),
-      );
-      schemaSettings.push(
-        colorSetting(
-          headingColorId,
-          `${labelPrefix} heading color`,
-          content.headingColor || "#111111",
-        ),
-      );
-      schemaSettings.push(
-        colorSetting(
-          contentColorId,
-          `${labelPrefix} content color`,
-          content.contentColor || "#555555",
-        ),
-      );
-
-      return `${open}
-{% assign sb_accordion_items = section.settings.${itemsId} | newline_to_br | split: '<br />' %}
-  <div data-sb-accordion data-allow-multiple="{{ section.settings.${allowMultipleId} }}" style="display:flex; flex-direction:column; gap:8px;">
-    {% for sb_accordion_item in sb_accordion_items %}
-      {% assign sb_accordion_line = sb_accordion_item | strip %}
-      {% if sb_accordion_line != blank %}
-        {% assign sb_accordion_parts = sb_accordion_line | split: '|' %}
-        <div data-sb-accordion-item class="{% if forloop.first %}is-open{% endif %}" style="border:1px solid {{ section.settings.${borderColorId} }}; border-radius:12px; overflow:hidden; background:#ffffff;">
-          <button type="button" data-sb-accordion-trigger aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}" style="width:100%; text-align:left; border:0; background:#f8fafc; padding:12px; font-weight:600; color:{{ section.settings.${headingColorId} }}; cursor:pointer;">{{ sb_accordion_parts[0] | strip }}</button>
-          <div data-sb-accordion-panel {% unless forloop.first %}hidden{% endunless %} style="padding:12px; color:{{ section.settings.${contentColorId} }};">{{ sb_accordion_parts[1] | strip }}</div>
-        </div>
-      {% endif %}
-    {% endfor %}
-  </div>
-</div>`;
-    }
-
-    case "tabs": {
-      const tabsId = `${prefix}_tabs_items`;
-      const activeColorId = `${prefix}_tabs_active`;
-      const inactiveColorId = `${prefix}_tabs_inactive`;
-      const defaultTabs = Array.isArray(content.tabs)
-        ? content.tabs
-            .map(
-              (tab: any) => `${tab.label || "Tab"}|${tab.content || "Content"}`,
-            )
-            .join("\n")
-        : "";
-      schemaSettings.push(
-        textareaSetting(tabsId, `${labelPrefix} tabs`, defaultTabs),
-      );
-      schemaSettings.push(
-        colorSetting(
-          activeColorId,
-          `${labelPrefix} active color`,
-          content.activeColor || "#111111",
-        ),
-      );
-      schemaSettings.push(
-        colorSetting(
-          inactiveColorId,
-          `${labelPrefix} inactive color`,
-          content.inactiveColor || "#64748b",
-        ),
-      );
-
-      return `${open}
-{% assign sb_tabs = section.settings.${tabsId} | newline_to_br | split: '<br />' %}
-  <div data-sb-tabs>
-    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
-      {% for sb_tab in sb_tabs %}
-        {% assign sb_tab_line = sb_tab | strip %}
-        {% if sb_tab_line != blank %}
-          {% assign sb_tab_parts = sb_tab_line | split: '|' %}
-          <button type="button" data-sb-tab-button="${prefix}-tab-{{ forloop.index }}" data-active-color="{{ section.settings.${activeColorId} }}" data-inactive-color="{{ section.settings.${inactiveColorId} }}" style="border:0; background:transparent; border-bottom:2px solid {% if forloop.first %}{{ section.settings.${activeColorId} }}{% else %}transparent{% endif %}; color:{% if forloop.first %}{{ section.settings.${activeColorId} }}{% else %}{{ section.settings.${inactiveColorId} }}{% endif %}; padding:8px 12px; font-weight:600; cursor:pointer;">{{ sb_tab_parts[0] | strip }}</button>
-        {% endif %}
-      {% endfor %}
-    </div>
-    {% for sb_tab in sb_tabs %}
-      {% assign sb_tab_line = sb_tab | strip %}
-      {% if sb_tab_line != blank %}
-        {% assign sb_tab_parts = sb_tab_line | split: '|' %}
-        <div data-sb-tab-panel="${prefix}-tab-{{ forloop.index }}" {% unless forloop.first %}hidden{% endunless %} style="border:1px solid #e2e8f0; border-radius:12px; padding:12px; background:#ffffff;">{{ sb_tab_parts[1] | strip }}</div>
-      {% endif %}
-    {% endfor %}
-  </div>
-</div>`;
-    }
-
-    case "countdown": {
-      const targetDateId = `${prefix}_countdown_target`;
-      const numberColorId = `${prefix}_countdown_number`;
-      const labelColorId = `${prefix}_countdown_label`;
-      const expiredTextId = `${prefix}_countdown_expired`;
-      schemaSettings.push(
-        textSetting(
-          targetDateId,
-          `${labelPrefix} target date`,
-          content.targetDate || "",
-        ),
-      );
-      schemaSettings.push(
-        colorSetting(
-          numberColorId,
-          `${labelPrefix} number color`,
-          content.numberColor || "#111111",
-        ),
-      );
-      schemaSettings.push(
-        colorSetting(
-          labelColorId,
-          `${labelPrefix} label color`,
-          content.labelColor || "#64748b",
-        ),
-      );
-      schemaSettings.push(
-        textSetting(
-          expiredTextId,
-          `${labelPrefix} expired text`,
-          content.expiredText || "This offer has ended",
-        ),
-      );
-
-      return `${open}
-  <div data-sb-countdown data-target-date="{{ section.settings.${targetDateId} }}" data-expired-text="{{ section.settings.${expiredTextId} }}" style="display:flex; gap:8px; flex-wrap:wrap;">
-    <div style="min-width:68px; padding:12px; border-radius:12px; background:#ffffff; border:1px solid #e2e8f0; text-align:center;">
-      <div data-sb-count-part="days" style="font-size:20px; font-weight:700; color:{{ section.settings.${numberColorId} }};">00</div>
-      <div style="margin-top:4px; font-size:11px; color:{{ section.settings.${labelColorId} }};">Days</div>
-    </div>
-    <div style="min-width:68px; padding:12px; border-radius:12px; background:#ffffff; border:1px solid #e2e8f0; text-align:center;">
-      <div data-sb-count-part="hours" style="font-size:20px; font-weight:700; color:{{ section.settings.${numberColorId} }};">00</div>
-      <div style="margin-top:4px; font-size:11px; color:{{ section.settings.${labelColorId} }};">Hours</div>
-    </div>
-    <div style="min-width:68px; padding:12px; border-radius:12px; background:#ffffff; border:1px solid #e2e8f0; text-align:center;">
-      <div data-sb-count-part="minutes" style="font-size:20px; font-weight:700; color:{{ section.settings.${numberColorId} }};">00</div>
-      <div style="margin-top:4px; font-size:11px; color:{{ section.settings.${labelColorId} }};">Minutes</div>
-    </div>
-    <div style="min-width:68px; padding:12px; border-radius:12px; background:#ffffff; border:1px solid #e2e8f0; text-align:center;">
-      <div data-sb-count-part="seconds" style="font-size:20px; font-weight:700; color:{{ section.settings.${numberColorId} }};">00</div>
-      <div style="margin-top:4px; font-size:11px; color:{{ section.settings.${labelColorId} }};">Seconds</div>
-    </div>
-    <div data-sb-count-expired hidden style="width:100%; color:#64748b; font-size:13px;">{{ section.settings.${expiredTextId} }}</div>
-  </div>
-</div>`;
-    }
-
-    case "form": {
-      const fieldsId = `${prefix}_form_fields`;
-      const submitTextId = `${prefix}_form_submit`;
-      const successMessageId = `${prefix}_form_success`;
-      const borderColorId = `${prefix}_form_border`;
-      const buttonColorId = `${prefix}_form_button`;
-      const buttonTextColorId = `${prefix}_form_button_text`;
-      const defaultFields = Array.isArray(content.fields)
-        ? content.fields
-            .map(
-              (field: any) =>
-                `${field.type || "text"}|${field.label || "Field"}|${field.placeholder || ""}|${field.required ? "true" : "false"}`,
-            )
-            .join("\n")
-        : "";
-      schemaSettings.push(
-        textareaSetting(fieldsId, `${labelPrefix} form fields`, defaultFields),
-      );
-      schemaSettings.push(
-        textSetting(
-          submitTextId,
-          `${labelPrefix} submit text`,
-          content.submitText || "Submit",
-        ),
-      );
-      schemaSettings.push(
-        textSetting(
-          successMessageId,
-          `${labelPrefix} success message`,
-          content.successMessage || "Thank you!",
-        ),
-      );
-      schemaSettings.push(
-        colorSetting(
-          borderColorId,
-          `${labelPrefix} input border color`,
-          content.inputBorderColor || "#d1d5db",
-        ),
-      );
-      schemaSettings.push(
-        colorSetting(
-          buttonColorId,
-          `${labelPrefix} button color`,
-          content.buttonColor || "#111111",
-        ),
-      );
-      schemaSettings.push(
-        colorSetting(
-          buttonTextColorId,
-          `${labelPrefix} button text color`,
-          content.buttonTextColor || "#ffffff",
-        ),
-      );
-
-      return `${open}
-{% assign sb_form_fields = section.settings.${fieldsId} | newline_to_br | split: '<br />' %}
-  <form data-sb-form style="display:flex; flex-direction:column; gap:10px;">
-    {% for sb_form_field in sb_form_fields %}
-      {% assign sb_form_line = sb_form_field | strip %}
-      {% if sb_form_line != blank %}
-        {% assign sb_form_parts = sb_form_line | split: '|' %}
-        <div style="display:flex; flex-direction:column; gap:4px;">
-          <label style="font-size:12px; color:#334155;">{{ sb_form_parts[1] | strip }}</label>
-          {% if sb_form_parts[0] | strip == 'textarea' %}
-            <textarea placeholder="{{ sb_form_parts[2] | strip }}" {% if sb_form_parts[3] | strip == 'true' %}required{% endif %} style="width:100%; padding:10px 12px; border-radius:10px; border:1px solid {{ section.settings.${borderColorId} }}; min-height:120px;"></textarea>
-          {% else %}
-            <input type="{{ sb_form_parts[0] | strip | default: 'text' }}" placeholder="{{ sb_form_parts[2] | strip }}" {% if sb_form_parts[3] | strip == 'true' %}required{% endif %} style="width:100%; padding:10px 12px; border-radius:10px; border:1px solid {{ section.settings.${borderColorId} }};">
-          {% endif %}
-        </div>
-      {% endif %}
-    {% endfor %}
-    <button type="submit" style="margin-top:4px; padding:12px 16px; border:0; border-radius:10px; background:{{ section.settings.${buttonColorId} }}; color:{{ section.settings.${buttonTextColorId} }}; font-weight:600;">{{ section.settings.${submitTextId} }}</button>
-    <div data-sb-form-success hidden style="font-size:13px; color:#0f766e;">{{ section.settings.${successMessageId} }}</div>
-  </form>
-</div>`;
-    }
-
-    case "slider": {
-      const slidesId = `${prefix}_slider_items`;
-      const autoplayId = `${prefix}_slider_autoplay`;
-      const speedId = `${prefix}_slider_speed`;
-      const heightId = `${prefix}_slider_height`;
-      const defaultSlides =
-        Array.isArray(content.slides) && content.slides.length
-          ? content.slides
-              .map(
-                (slide: any) =>
-                  `${slide.heading || slide.title || "Slide"}|${slide.text || slide.subtitle || ""}|${slide.image || slide.imageUrl || slide.src || ""}`,
-              )
-              .join("\n")
-          : "Slide one|Add slides in theme settings.|";
-      schemaSettings.push(
-        textareaSetting(slidesId, `${labelPrefix} slides`, defaultSlides),
-      );
-      schemaSettings.push(
-        checkboxSetting(
-          autoplayId,
-          `${labelPrefix} autoplay`,
-          content.autoplay !== false,
-        ),
-      );
-      schemaSettings.push(
-        rangeSetting(
-          speedId,
-          `${labelPrefix} autoplay speed`,
-          1200,
-          12000,
-          100,
-          content.autoplaySpeed || 5000,
-        ),
-      );
-      schemaSettings.push(
-        rangeSetting(
-          heightId,
-          `${labelPrefix} slider height`,
-          180,
-          800,
-          10,
-          content.height?.desktop || 420,
-        ),
-      );
-
-      return `${open}
-{% assign sb_slides = section.settings.${slidesId} | newline_to_br | split: '<br />' %}
-  <div data-sb-slider data-autoplay="{{ section.settings.${autoplayId} }}" data-speed="{{ section.settings.${speedId} }}">
-    <div style="position:relative; min-height:{{ section.settings.${heightId} }}px; border-radius:14px; overflow:hidden; background:#0f172a; color:#e2e8f0;">
-      {% for sb_slide in sb_slides %}
-        {% assign sb_slide_line = sb_slide | strip %}
-        {% if sb_slide_line != blank %}
-          {% assign sb_slide_parts = sb_slide_line | split: '|' %}
-          <div data-sb-slider-slide class="{% if forloop.first %}is-active{% endif %}" style="position:{% if forloop.first %}relative{% else %}absolute{% endif %}; inset:0; min-height:{{ section.settings.${heightId} }}px; padding:28px; align-items:flex-end; background:{% if sb_slide_parts[2] != blank %}linear-gradient(180deg, rgba(15,23,42,0.12), rgba(15,23,42,0.82)), url({{ sb_slide_parts[2] | strip }}) center/cover no-repeat{% else %}linear-gradient(135deg, #0f172a 0%, #2563eb 100%){% endif %};">
-            <div style="max-width:520px;">
-              <div style="font-size:30px; font-weight:700; line-height:1.1;">{{ sb_slide_parts[0] | strip }}</div>
-              <div style="margin-top:10px; font-size:14px; line-height:1.6;">{{ sb_slide_parts[1] | strip }}</div>
-            </div>
-          </div>
-        {% endif %}
-      {% endfor %}
-    </div>
-    <div style="display:flex; justify-content:center; gap:6px; margin-top:10px;">
-      {% for sb_slide in sb_slides %}
-        {% assign sb_slide_line = sb_slide | strip %}
-        {% if sb_slide_line != blank %}
-          <button type="button" data-sb-slider-dot style="width:10px; height:10px; border-radius:999px; border:0; background:#0f172a; opacity:{% if forloop.first %}1{% else %}0.4{% endif %}; cursor:pointer;"></button>
-        {% endif %}
-      {% endfor %}
-    </div>
-  </div>
-</div>`;
-    }
-
-    case "product_card": {
-      const productHandleId = `${prefix}_product_handle`;
-      const showTitleId = `${prefix}_product_show_title`;
-      const showVendorId = `${prefix}_product_show_vendor`;
-      const showPriceId = `${prefix}_product_show_price`;
-      schemaSettings.push(
-        textSetting(
-          productHandleId,
-          `${labelPrefix} product handle`,
-          content.productHandle || "",
-        ),
-      );
-      schemaSettings.push(
-        checkboxSetting(
-          showTitleId,
-          `${labelPrefix} show title`,
-          content.showTitle !== false,
-        ),
-      );
-      schemaSettings.push(
-        checkboxSetting(
-          showVendorId,
-          `${labelPrefix} show vendor`,
-          Boolean(content.showVendor),
-        ),
-      );
-      schemaSettings.push(
-        checkboxSetting(
-          showPriceId,
-          `${labelPrefix} show price`,
-          content.showPrice !== false,
-        ),
-      );
-
-      return `${open}
-{% assign sb_product = all_products[section.settings.${productHandleId}] %}
-{% if sb_product != blank %}
-  <a href="{{ sb_product.url }}" style="display:block; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden; background:#ffffff; text-decoration:none;">
-    {% if sb_product.featured_image != blank %}
-      <img src="{{ sb_product.featured_image | image_url: width: 900 }}" alt="{{ sb_product.title | escape }}" style="width:100%; display:block;">
-    {% endif %}
-    <div style="padding:12px;">
-      {% if section.settings.${showVendorId} %}<div style="font-size:12px; color:#64748b;">{{ sb_product.vendor }}</div>{% endif %}
-      {% if section.settings.${showTitleId} %}<div style="font-weight:600; color:#0f172a;">{{ sb_product.title }}</div>{% endif %}
-      {% if section.settings.${showPriceId} %}<div style="margin-top:4px; color:#334155;">{{ sb_product.price | money }}</div>{% endif %}
-    </div>
-  </a>
-{% else %}
-  <div style="border:1px solid #e2e8f0; border-radius:14px; overflow:hidden; background:#ffffff; padding:14px;">Add a valid product handle to show real product data.</div>
-{% endif %}
-</div>`;
-    }
-
-    case "product_grid":
-    case "collection": {
-      const isCollection = element.type === "collection";
-      const collectionHandleId = `${prefix}_collection_handle`;
-      const columnsId = `${prefix}_collection_columns`;
-      const limitId = `${prefix}_collection_limit`;
-      const showTitleId = `${prefix}_collection_show_title`;
-      schemaSettings.push(
-        textSetting(
-          collectionHandleId,
-          `${labelPrefix} collection handle`,
-          content.collectionHandle || content.collectionId || "",
-        ),
-      );
-      schemaSettings.push(
-        rangeSetting(
-          columnsId,
-          `${labelPrefix} columns`,
-          1,
-          4,
-          1,
-          content.columns?.desktop || 3,
-        ),
-      );
-      schemaSettings.push(
-        rangeSetting(
-          limitId,
-          `${labelPrefix} item limit`,
-          1,
-          24,
-          1,
-          content.limit || 6,
-        ),
-      );
-      schemaSettings.push(
-        checkboxSetting(
-          showTitleId,
-          `${labelPrefix} show collection title`,
-          content.showTitle !== false,
-        ),
-      );
-
-      return `${open}
-{% assign sb_collection = collections[section.settings.${collectionHandleId}] %}
-{% if sb_collection != blank %}
-  <div>
-    ${isCollection ? `{% if section.settings.${showTitleId} %}<h3 style="margin:0 0 16px; color:#0f172a;">{{ sb_collection.title }}</h3>{% endif %}` : ""}
-    <div style="display:grid; grid-template-columns:repeat({{ section.settings.${columnsId} }}, minmax(0, 1fr)); gap:12px;">
-      {% for product in sb_collection.products limit: section.settings.${limitId} %}
-        <a href="{{ product.url }}" style="display:block; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden; background:#ffffff; text-decoration:none;">
-          {% if product.featured_image != blank %}
-            <img src="{{ product.featured_image | image_url: width: 900 }}" alt="{{ product.title | escape }}" style="width:100%; display:block;">
-          {% endif %}
-          <div style="padding:12px;">
-            <div style="font-weight:600; color:#0f172a;">{{ product.title }}</div>
-            ${isCollection ? "" : `<div style="margin-top:4px; color:#334155;">{{ product.price | money }}</div>`}
-          </div>
-        </a>
-      {% endfor %}
-    </div>
-  </div>
-{% else %}
-  <div style="padding:14px; border:1px solid #e2e8f0; border-radius:14px; background:#ffffff;">Add a valid collection handle to show real store data.</div>
-{% endif %}
-</div>`;
-    }
-
-    default: {
-      const noteId = `${prefix}_note`;
-      schemaSettings.push(
-        textareaSetting(
-          noteId,
-          `${labelPrefix} unsupported note`,
-          `Unsupported builder element type: ${element.type}`,
-        ),
-      );
-      return `${open}
-  <div>{{ section.settings.${noteId} }}</div>
-</div>`;
-    }
-  }
+  return stripThemeSchema(nativeLiquid)
+    .replaceAll("{{ section.id }}", rootId)
+    .replaceAll(
+      "{{ section.settings.sb_background_color }}",
+      toStringValue(section.settings.backgroundColor.desktop, "#ffffff"),
+    )
+    .replaceAll(
+      "{{ section.settings.sb_padding_top }}",
+      String(toNumber(section.settings.paddingTop.desktop, 40)),
+    )
+    .replaceAll(
+      "{{ section.settings.sb_padding_bottom }}",
+      String(toNumber(section.settings.paddingBottom.desktop, 40)),
+    )
+    .replaceAll(
+      "{% if section.settings.sb_full_width %}100%{% else %}{{ section.settings.sb_container_width }}px{% endif %}",
+      section.settings.fullWidth ? "100%" : `${Math.max(320, containerWidth)}px`,
+    );
 }

@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "~/lib/shopify.server";
 import { db } from "~/lib/db.server";
+import { ensureShopRecord } from "~/lib/shop.server";
 import { compileLiquid } from "~/lib/liquidCompiler.server";
 import { writeThemePage } from "~/lib/themeApi.server";
 
@@ -8,13 +9,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   const { session, admin } = await authenticate.admin(request);
   const { pageId } = params as { pageId: string };
 
-  const shop = await db.shop.findUnique({ where: { shopDomain: session.shop } });
-  if (!shop) {
-    return new Response(JSON.stringify({ error: "Shop not found" }), {
-      status: 404,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
+  const shop = await ensureShopRecord(session);
 
   const page = await db.page.findFirst({ where: { id: pageId, shopId: shop.id } });
   if (!page) {

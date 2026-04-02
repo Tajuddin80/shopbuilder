@@ -2,6 +2,7 @@ import type { LoaderFunctionArgs } from "react-router";
 import { useLoaderData, useNavigate } from "react-router";
 import { authenticate } from "~/lib/shopify.server";
 import { db } from "~/lib/db.server";
+import { ensureShopRecord } from "~/lib/shop.server";
 import { Layout, Page } from "@shopify/polaris";
 import { EmptyState } from "~/components/dashboard/EmptyState";
 import { PageCard } from "~/components/dashboard/PageCard";
@@ -9,6 +10,7 @@ import { PlanBanner } from "~/components/dashboard/PlanBanner";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const { session } = await authenticate.admin(request);
+  await ensureShopRecord(session);
 
   const shop = await db.shop.findUnique({
     where: { shopDomain: session.shop },

@@ -2,6 +2,7 @@ import type { LoaderFunctionArgs } from "react-router";
 import { useLoaderData, useNavigate } from "react-router";
 import { authenticate } from "~/lib/shopify.server";
 import { db } from "~/lib/db.server";
+import { ensureShopRecord } from "~/lib/shop.server";
 import {
   listLocalThemeSections,
   listSavedSections,
@@ -18,9 +19,7 @@ import {
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const { session } = await authenticate.admin(request);
-  const shop = await db.shop.findUnique({
-    where: { shopDomain: session.shop },
-  });
+  const shop = await ensureShopRecord(session);
 
   const [templates, savedSections, themeSections] = await Promise.all([
     db.template.findMany({

@@ -2,7 +2,6 @@ import {
   closestCenter,
   DndContext,
   DragOverlay,
-  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
@@ -22,7 +21,6 @@ export function BuilderWorkspace() {
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor),
   );
 
   function handleDragStart(event: DragStartEvent) {

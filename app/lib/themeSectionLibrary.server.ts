@@ -2,7 +2,10 @@ import { promises as fs } from "fs";
 import path from "path";
 import { db } from "./db.server";
 import type { Section } from "./pageSchema";
-import { buildThemeSectionLiquid } from "./themeSectionCompiler.server";
+import {
+  buildThemeAppProxyLiquid,
+  buildThemeSectionLiquid,
+} from "./themeSectionCompiler.server";
 import {
   getSavedSectionFromContent,
   getSavedSectionPageContent,
@@ -11,10 +14,47 @@ import {
   type SavedSectionLibraryItem,
   type ThemeSectionLibraryItem,
 } from "./sectionLibrary";
-import { saveThemeAssetToAllThemes } from "./themeApi.server";
+import {
+  addSectionInstanceToAllThemes,
+  saveThemeAssetToAllThemes,
+} from "./themeApi.server";
 
 const SECTION_TEMPLATE_MARKER = "SECTION_TEMPLATE::";
 const LOCAL_THEME_SECTION_DIR = path.join(process.cwd(), "theme-sections");
+const APP_BLOCK_INSTANCE_LIMIT = 50;
+
+function getTemplateMeta(content: unknown) {
+  return ((content as any)?.sectionTemplateMeta || {}) as Record<string, any>;
+}
+
+function getTemplateAppBlockInstances(content: unknown) {
+  const instances = getTemplateMeta(content).appBlockInstances;
+  if (!Array.isArray(instances)) return [];
+
+  return instances
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .slice(0, APP_BLOCK_INSTANCE_LIMIT);
+}
+
+function withBoundAppBlockInstance(content: unknown, instanceId: string) {
+  const currentContent =
+    content && typeof content === "object" ? { ...(content as Record<string, unknown>) } : {};
+  const meta = {
+    ...getTemplateMeta(content),
+  };
+  const nextInstances = Array.from(
+    new Set([...getTemplateAppBlockInstances(content), instanceId]),
+  ).slice(-APP_BLOCK_INSTANCE_LIMIT);
+
+  return {
+    ...currentContent,
+    sectionTemplateMeta: {
+      ...meta,
+      appBlockInstances: nextInstances,
+    },
+  };
+}
 
 export async function listLocalThemeSections(): Promise<
   ThemeSectionLibraryItem[]
@@ -113,6 +153,10 @@ export async function saveBuilderSectionToTheme({
   });
 
   await saveThemeAssetToAllThemes(admin, assetKey, liquid);
+  const homepagePlacement = await addSectionInstanceToAllThemes(admin, {
+    templateKey: "templates/index.json",
+    sectionType: handle,
+  });
 
   const existing = await db.template.findFirst({
     where: {
@@ -120,6 +164,7 @@ export async function saveBuilderSectionToTheme({
       description: `${SECTION_TEMPLATE_MARKER}${handle}`,
     },
   });
+  const appBlockInstances = getTemplateAppBlockInstances(existing?.content);
 
   const content = {
     ...getSavedSectionPageContent(section, containerWidth),
@@ -127,6 +172,7 @@ export async function saveBuilderSectionToTheme({
       handle,
       assetKey,
       containerWidth,
+      appBlockInstances,
     },
   };
 
@@ -152,7 +198,11 @@ export async function saveBuilderSectionToTheme({
     });
   }
 
-  return { handle, assetKey };
+  return {
+    handle,
+    assetKey,
+    addedToHomepage: homepagePlacement.updatedThemes > 0,
+  };
 }
 
 export async function syncSavedSectionsToThemes(admin: any, shopId: string) {
@@ -190,4 +240,116 @@ export async function syncSavedSectionsToThemes(admin: any, shopId: string) {
 
     await saveThemeAssetToAllThemes(admin, assetKey, liquid);
   }
+}
+
+export async function getSavedSectionRenderPayload({
+  shopDomain,
+  handle,
+  instanceId,
+}: {
+  shopDomain: string;
+  handle?: string | null;
+  instanceId?: string | null;
+}) {
+  const shop = await db.shop.findUnique({
+    where: { shopDomain },
+  });
+
+  if (!shop) return null;
+
+  const normalizedHandle = String(handle || "").trim();
+  const normalizedInstanceId = String(instanceId || "").trim();
+  let template = normalizedHandle
+    ? await db.template.findFirst({
+        where: {
+          shopId: shop.id,
+          description: `${SECTION_TEMPLATE_MARKER}${normalizedHandle}`,
+        },
+      })
+    : null;
+
+  if (!template) {
+    const templates = await db.template.findMany({
+      where: {
+        shopId: shop.id,
+        description: {
+          startsWith: SECTION_TEMPLATE_MARKER,
+        },
+      },
+      orderBy: [{ createdAt: "desc" }],
+    });
+
+    if (normalizedInstanceId) {
+      template =
+        templates.find((entry) =>
+          getTemplateAppBlockInstances(entry.content).includes(normalizedInstanceId),
+        ) || null;
+    }
+
+    template =
+      template ||
+      templates.find((entry) => Boolean(getSavedSectionFromContent(entry.content))) ||
+      null;
+
+    if (template && normalizedInstanceId) {
+      const boundContent = withBoundAppBlockInstance(
+        template.content,
+        normalizedInstanceId,
+      );
+
+      if (
+        getTemplateAppBlockInstances(template.content).join("|") !==
+        getTemplateAppBlockInstances(boundContent).join("|")
+      ) {
+        template = await db.template.update({
+          where: { id: template.id },
+          data: {
+            content: boundContent as any,
+          },
+        });
+      }
+    }
+  }
+
+  if (!template) return null;
+
+  if (
+    template &&
+    normalizedInstanceId &&
+    !getTemplateAppBlockInstances(template.content).includes(normalizedInstanceId)
+  ) {
+    template = await db.template.update({
+      where: { id: template.id },
+      data: {
+        content: withBoundAppBlockInstance(
+          template.content,
+          normalizedInstanceId,
+        ) as any,
+      },
+    });
+  }
+
+  const section = getSavedSectionFromContent(template.content);
+  if (!section) return null;
+
+  const containerWidth = Number(
+    (template.content as any)?.sectionTemplateMeta?.containerWidth ||
+      (template.content as any)?.globalStyles?.maxWidth ||
+      1200,
+  );
+  const resolvedHandle =
+    (template.content as any)?.sectionTemplateMeta?.handle ||
+    template.description?.replace(SECTION_TEMPLATE_MARKER, "") ||
+    slugifySectionHandle(template.name);
+
+  return {
+    handle: resolvedHandle,
+    name: template.name,
+    liquid: buildThemeAppProxyLiquid({
+      section,
+      displayName: template.name,
+      containerWidth,
+      instanceId: instanceId || resolvedHandle,
+    }),
+  };
 }

@@ -2,6 +2,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { Form, useActionData, useLoaderData, useNavigate } from "react-router";
 import { authenticate } from "~/lib/shopify.server";
 import { db } from "~/lib/db.server";
+import { ensureShopRecord } from "~/lib/shop.server";
 import { Button, Card, FormLayout, Layout, Page, TextField } from "@shopify/polaris";
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -13,9 +14,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return { template: null };
   }
 
-  const shop = await db.shop.findUnique({
-    where: { shopDomain: session.shop },
-  });
+  const shop = await ensureShopRecord(session);
 
   const template = shop
     ? await db.template.findFirst({
@@ -44,8 +43,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
   if (!handle) return { error: "Handle is required" };
 
-  const shop = await db.shop.findUnique({ where: { shopDomain: session.shop } });
-  if (!shop) return { error: "Shop not found. Reinstall the app." };
+  const shop = await ensureShopRecord(session);
 
   const template = templateId
     ? await db.template.findFirst({

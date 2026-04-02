@@ -14,7 +14,7 @@ export function ElementPicker({
     if (!normalizedQuery) return ELEMENT_REGISTRY;
 
     return ELEMENT_REGISTRY.filter((entry) =>
-      `${entry.label} ${entry.type} ${entry.category}`
+      `${entry.label} ${entry.type} ${entry.category} ${(entry.keywords || []).join(" ")}`
         .toLowerCase()
         .includes(normalizedQuery),
     );
@@ -52,7 +52,7 @@ export function ElementPicker({
             >
               {entries.map((entry) => (
                 <button
-                  key={entry.type}
+                  key={`${entry.type}-${entry.label}`}
                   type="button"
                   onClick={() => onSelect(entry)}
                   style={{

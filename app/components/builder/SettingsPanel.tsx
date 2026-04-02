@@ -30,6 +30,11 @@ const SECTION_LAYOUT_OPTIONS = [
   { label: "4 columns - equal", value: "4-equal" },
 ];
 
+const BOOLEAN_SELECT_OPTIONS = [
+  { label: "Yes", value: "true" },
+  { label: "No", value: "false" },
+];
+
 function toNumber(value: string, fallback: number) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -203,6 +208,10 @@ export function SettingsPanel() {
   } = useBuilderStore();
   const [isSavingSection, setIsSavingSection] = useState(false);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [themeEditorUrl, setThemeEditorUrl] = useState<string | null>(null);
+  const [appBlockEditorUrl, setAppBlockEditorUrl] = useState<string | null>(
+    null,
+  );
 
   const selectedSection = pageContent.sections.find(
     (section) => section.id === selectedSectionId,
@@ -212,12 +221,19 @@ export function SettingsPanel() {
     .find((element) => element.id === selectedElementId);
   const editingSectionOnly = !!selectedSection && !selectedElement;
 
+  function openThemeEditor(url: string | null) {
+    if (!url || typeof window === "undefined") return;
+    window.open(url, "_top");
+  }
+
   async function saveSectionToTheme() {
     if (!selectedSection) return;
 
     try {
       setIsSavingSection(true);
       setSaveStatus(null);
+      setThemeEditorUrl(null);
+      setAppBlockEditorUrl(null);
       const response = await fetch("/api/section-library", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -234,8 +250,48 @@ export function SettingsPanel() {
         return;
       }
 
+      const payload = await response.json().catch(() => null);
+      if (
+        !payload ||
+        typeof payload !== "object" ||
+        payload?.error ||
+        (!payload?.savedHandle && !payload?.savedName)
+      ) {
+        setSaveStatus(
+          "The app could not confirm a Shopify save. Open the embedded app from Shopify and try again.",
+        );
+        return;
+      }
+
       bumpLibraryRefreshNonce();
-      setSaveStatus("Section saved and synced to the active theme.");
+      const savedName =
+        typeof payload?.savedName === "string" && payload.savedName.trim()
+          ? payload.savedName.trim()
+          : selectedSection.name;
+      const savedHandle =
+        typeof payload?.savedHandle === "string" && payload.savedHandle.trim()
+          ? payload.savedHandle.trim()
+          : "";
+      const addedToHomepage = payload?.addedToHomepage === true;
+      const nextThemeEditorUrl =
+        typeof payload?.themeEditorUrl === "string" &&
+        payload.themeEditorUrl.trim()
+          ? payload.themeEditorUrl.trim()
+          : null;
+      const nextAppBlockEditorUrl =
+        typeof payload?.appBlockEditorUrl === "string" &&
+        payload.appBlockEditorUrl.trim()
+          ? payload.appBlockEditorUrl.trim()
+          : null;
+      setThemeEditorUrl(nextThemeEditorUrl);
+      setAppBlockEditorUrl(nextAppBlockEditorUrl);
+      setSaveStatus(
+        addedToHomepage
+          ? `Saved as "${savedName}"${savedHandle ? ` (${savedHandle})` : ""} and added to the Home page template. The app-block route is also ready under Theme Customizer -> Add section -> Apps after the ShopBuilder theme extension is deployed.`
+          : savedHandle
+            ? `Saved as "${savedName}" (${savedHandle}). This save is available in the native theme sync now, and in Add section -> Apps after the ShopBuilder theme extension is deployed.`
+            : `Saved as "${savedName}". This save is available in the native theme sync now, and in Add section -> Apps after the ShopBuilder theme extension is deployed.`,
+      );
     } finally {
       setIsSavingSection(false);
     }
@@ -331,15 +387,41 @@ export function SettingsPanel() {
                   style={{ fontSize: 13, color: "#64748b", lineHeight: 1.5 }}
                 >
                   Saving creates a native <code>sections/*.liquid</code> file in
-                  the active Shopify theme, so merchants can add it in theme
-                  customization.
+                  your Shopify theme library and also attempts to place the
+                  saved section into the homepage template so it appears inside
+                  Theme Customizer immediately. This project now also includes a
+                  theme app extension path for rendering saved sections under{" "}
+                  <code>Add section -&gt; Apps</code> after deployment, and a
+                  new blank ShopBuilder app block will auto-bind to the newest
+                  save the first time it renders.
                 </div>
 
                 {saveStatus && (
-                  <div
-                    style={{ fontSize: 13, color: "#0f766e", lineHeight: 1.5 }}
-                  >
-                    {saveStatus}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div
+                      style={{ fontSize: 13, color: "#0f766e", lineHeight: 1.5 }}
+                    >
+                      {saveStatus}
+                    </div>
+
+                    <InlineStack gap="200" wrap>
+                      {themeEditorUrl && (
+                        <Button
+                          size="slim"
+                          onClick={() => openThemeEditor(themeEditorUrl)}
+                        >
+                          Open Home Template
+                        </Button>
+                      )}
+                      {appBlockEditorUrl && (
+                        <Button
+                          size="slim"
+                          onClick={() => openThemeEditor(appBlockEditorUrl)}
+                        >
+                          Open Add Section Apps
+                        </Button>
+                      )}
+                    </InlineStack>
                   </div>
                 )}
 
@@ -1563,22 +1645,55 @@ function renderElementContentControls(
 
     case "testimonial":
       return (
-        <TextField
-          label="Testimonials"
-          autoComplete="off"
-          multiline={6}
-          helpText="One testimonial per line in this format: quote|author|role"
-          value={serializeLineItems(selectedElement.content?.items || [], [
-            "quote",
-            "author",
-            "role",
-          ])}
-          onChange={(value) =>
-            updateContent({
-              items: parseLineItems(value, ["quote", "author", "role"]),
-            })
-          }
-        />
+        <>
+          <TextField
+            label="Testimonials"
+            autoComplete="off"
+            multiline={6}
+            helpText="One testimonial per line in this format: quote|author|role"
+            value={serializeLineItems(selectedElement.content?.items || [], [
+              "quote",
+              "author",
+              "role",
+            ])}
+            onChange={(value) =>
+              updateContent({
+                items: parseLineItems(value, ["quote", "author", "role"]),
+              })
+            }
+          />
+          <TextField
+            label="Columns"
+            type="number"
+            autoComplete="off"
+            value={String(selectedElement.content?.columns?.desktop || 3)}
+            onChange={(value) =>
+              updateContent({
+                columns: setBreakpointValue(
+                  selectedElement.content?.columns,
+                  activeBreakpoint,
+                  Math.max(1, Math.min(4, toNumber(value, 3))),
+                ),
+              })
+            }
+          />
+          <Select
+            label="Show rating"
+            options={BOOLEAN_SELECT_OPTIONS}
+            value={selectedElement.content?.showRating === false ? "false" : "true"}
+            onChange={(value) =>
+              updateContent({ showRating: value === "true" })
+            }
+          />
+          <Select
+            label="Show avatar"
+            options={BOOLEAN_SELECT_OPTIONS}
+            value={selectedElement.content?.showAvatar ? "true" : "false"}
+            onChange={(value) =>
+              updateContent({ showAvatar: value === "true" })
+            }
+          />
+        </>
       );
 
     case "accordion":
@@ -1670,6 +1785,13 @@ function renderElementContentControls(
             value={selectedElement.content?.successMessage || ""}
             onChange={(value) => updateContent({ successMessage: value })}
           />
+          <TextField
+            label="Email recipient"
+            autoComplete="off"
+            value={selectedElement.content?.emailRecipient || ""}
+            onChange={(value) => updateContent({ emailRecipient: value })}
+            helpText="Optional destination for leads or notifications."
+          />
           <ColorPicker
             label="Input border color"
             value={selectedElement.content?.inputBorderColor || "#d1d5db"}
@@ -1690,22 +1812,82 @@ function renderElementContentControls(
 
     case "slider":
       return (
-        <TextField
-          label="Slides"
-          autoComplete="off"
-          multiline={6}
-          helpText="One slide per line: heading|text|imageUrl"
-          value={serializeLineItems(selectedElement.content?.slides || [], [
-            "heading",
-            "text",
-            "image",
-          ])}
-          onChange={(value) =>
-            updateContent({
-              slides: parseLineItems(value, ["heading", "text", "image"]),
-            })
-          }
-        />
+        <>
+          <TextField
+            label="Slides"
+            autoComplete="off"
+            multiline={6}
+            helpText="One slide per line: heading|text|imageUrl"
+            value={serializeLineItems(selectedElement.content?.slides || [], [
+              "heading",
+              "text",
+              "image",
+            ])}
+            onChange={(value) =>
+              updateContent({
+                slides: parseLineItems(value, ["heading", "text", "image"]),
+              })
+            }
+          />
+          <Select
+            label="Autoplay"
+            options={BOOLEAN_SELECT_OPTIONS}
+            value={selectedElement.content?.autoplay === false ? "false" : "true"}
+            onChange={(value) =>
+              updateContent({ autoplay: value === "true" })
+            }
+          />
+          <Select
+            label="Show dots"
+            options={BOOLEAN_SELECT_OPTIONS}
+            value={selectedElement.content?.showDots === false ? "false" : "true"}
+            onChange={(value) =>
+              updateContent({ showDots: value === "true" })
+            }
+          />
+          <TextField
+            label="Autoplay speed (ms)"
+            type="number"
+            autoComplete="off"
+            value={String(selectedElement.content?.autoplaySpeed || 5000)}
+            onChange={(value) =>
+              updateContent({
+                autoplaySpeed: Math.max(1200, toNumber(value, 5000)),
+              })
+            }
+          />
+          <TextField
+            label="Slider height"
+            type="number"
+            autoComplete="off"
+            value={String(
+              getBreakpointValue(
+                selectedElement.content?.height,
+                activeBreakpoint,
+                420,
+              ),
+            )}
+            onChange={(value) =>
+              updateContent({
+                height: setBreakpointValue(
+                  selectedElement.content?.height,
+                  activeBreakpoint,
+                  Math.max(
+                    180,
+                    toNumber(
+                      value,
+                      getBreakpointValue(
+                        selectedElement.content?.height,
+                        activeBreakpoint,
+                        420,
+                      ),
+                    ),
+                  ),
+                ),
+              })
+            }
+          />
+        </>
       );
 
     case "social_icons":
@@ -1740,37 +1922,240 @@ function renderElementContentControls(
               })
             }
           />
+          <TextField
+            label="Gap"
+            type="number"
+            autoComplete="off"
+            value={String(selectedElement.content?.gap || 12)}
+            onChange={(value) =>
+              updateContent({
+                gap: Math.max(0, toNumber(value, selectedElement.content?.gap || 12)),
+              })
+            }
+          />
+          <ColorPicker
+            label="Icon color"
+            value={selectedElement.content?.iconColor || "#111111"}
+            onChange={(value) => updateContent({ iconColor: value })}
+          />
+          <Select
+            label="Icon style"
+            options={[
+              { label: "Logo", value: "logo" },
+              { label: "Filled", value: "filled" },
+            ]}
+            value={selectedElement.content?.iconStyle || "logo"}
+            onChange={(value) => updateContent({ iconStyle: value })}
+          />
+          <Select
+            label="Alignment"
+            options={[
+              { label: "Left", value: "left" },
+              { label: "Center", value: "center" },
+              { label: "Right", value: "right" },
+            ]}
+            value={selectedElement.content?.alignment || "center"}
+            onChange={(value) => updateContent({ alignment: value })}
+          />
         </>
       );
 
     case "product_card":
       return (
-        <TextField
-          label="Product handle"
-          autoComplete="off"
-          value={selectedElement.content?.productHandle || ""}
-          onChange={(value) => updateContent({ productHandle: value })}
-        />
+        <>
+          <TextField
+            label="Product handle"
+            autoComplete="off"
+            value={selectedElement.content?.productHandle || ""}
+            onChange={(value) => updateContent({ productHandle: value })}
+          />
+          <Select
+            label="Layout"
+            options={[
+              { label: "Vertical", value: "vertical" },
+              { label: "Horizontal", value: "horizontal" },
+            ]}
+            value={selectedElement.content?.layout || "vertical"}
+            onChange={(value) => updateContent({ layout: value })}
+          />
+          <Select
+            label="Image ratio"
+            options={[
+              { label: "Square", value: "square" },
+              { label: "Portrait", value: "portrait" },
+              { label: "Landscape", value: "landscape" },
+            ]}
+            value={selectedElement.content?.imageRatio || "square"}
+            onChange={(value) => updateContent({ imageRatio: value })}
+          />
+          <Select
+            label="Show title"
+            options={BOOLEAN_SELECT_OPTIONS}
+            value={selectedElement.content?.showTitle === false ? "false" : "true"}
+            onChange={(value) =>
+              updateContent({ showTitle: value === "true" })
+            }
+          />
+          <Select
+            label="Show vendor"
+            options={BOOLEAN_SELECT_OPTIONS}
+            value={selectedElement.content?.showVendor ? "true" : "false"}
+            onChange={(value) =>
+              updateContent({ showVendor: value === "true" })
+            }
+          />
+          <Select
+            label="Show price"
+            options={BOOLEAN_SELECT_OPTIONS}
+            value={selectedElement.content?.showPrice === false ? "false" : "true"}
+            onChange={(value) =>
+              updateContent({ showPrice: value === "true" })
+            }
+          />
+          <Select
+            label="Show add to cart"
+            options={BOOLEAN_SELECT_OPTIONS}
+            value={selectedElement.content?.showAddToCart === false ? "false" : "true"}
+            onChange={(value) =>
+              updateContent({ showAddToCart: value === "true" })
+            }
+          />
+        </>
       );
 
     case "product_grid":
+      return (
+        <>
+          <TextField
+            label="Collection handle"
+            autoComplete="off"
+            value={
+              selectedElement.content?.collectionHandle ||
+              selectedElement.content?.collectionId ||
+              ""
+            }
+            onChange={(value) =>
+              updateContent({
+                collectionHandle: value,
+                collectionId: value,
+              })
+            }
+          />
+          <TextField
+            label="Columns"
+            type="number"
+            autoComplete="off"
+            value={String(selectedElement.content?.columns?.desktop || 3)}
+            onChange={(value) =>
+              updateContent({
+                columns: setBreakpointValue(
+                  selectedElement.content?.columns,
+                  activeBreakpoint,
+                  Math.max(1, Math.min(4, toNumber(value, 3))),
+                ),
+              })
+            }
+          />
+          <TextField
+            label="Item limit"
+            type="number"
+            autoComplete="off"
+            value={String(selectedElement.content?.limit || 6)}
+            onChange={(value) =>
+              updateContent({ limit: Math.max(1, toNumber(value, 6)) })
+            }
+          />
+          <Select
+            label="Show pagination"
+            options={BOOLEAN_SELECT_OPTIONS}
+            value={selectedElement.content?.showPagination ? "true" : "false"}
+            onChange={(value) =>
+              updateContent({ showPagination: value === "true" })
+            }
+          />
+          <Select
+            label="Sort order"
+            options={[
+              { label: "Best selling", value: "best-selling" },
+              { label: "Newest", value: "created-descending" },
+              { label: "Price low to high", value: "price-ascending" },
+              { label: "Price high to low", value: "price-descending" },
+            ]}
+            value={selectedElement.content?.sortBy || "best-selling"}
+            onChange={(value) => updateContent({ sortBy: value })}
+          />
+        </>
+      );
+
     case "collection":
       return (
-        <TextField
-          label="Collection handle"
-          autoComplete="off"
-          value={
-            selectedElement.content?.collectionHandle ||
-            selectedElement.content?.collectionId ||
-            ""
-          }
-          onChange={(value) =>
-            updateContent({
-              collectionHandle: value,
-              collectionId: value,
-            })
-          }
-        />
+        <>
+          <TextField
+            label="Collection handle"
+            autoComplete="off"
+            value={
+              selectedElement.content?.collectionHandle ||
+              selectedElement.content?.collectionId ||
+              ""
+            }
+            onChange={(value) =>
+              updateContent({
+                collectionHandle: value,
+                collectionId: value,
+              })
+            }
+          />
+          <TextField
+            label="Columns"
+            type="number"
+            autoComplete="off"
+            value={String(selectedElement.content?.columns?.desktop || 3)}
+            onChange={(value) =>
+              updateContent({
+                columns: setBreakpointValue(
+                  selectedElement.content?.columns,
+                  activeBreakpoint,
+                  Math.max(1, Math.min(4, toNumber(value, 3))),
+                ),
+              })
+            }
+          />
+          <TextField
+            label="Collection limit"
+            type="number"
+            autoComplete="off"
+            value={String(selectedElement.content?.limit || 6)}
+            onChange={(value) =>
+              updateContent({ limit: Math.max(1, toNumber(value, 6)) })
+            }
+          />
+          <Select
+            label="Show title"
+            options={BOOLEAN_SELECT_OPTIONS}
+            value={selectedElement.content?.showTitle === false ? "false" : "true"}
+            onChange={(value) =>
+              updateContent({ showTitle: value === "true" })
+            }
+          />
+          <Select
+            label="Show product count"
+            options={BOOLEAN_SELECT_OPTIONS}
+            value={selectedElement.content?.showProductCount ? "true" : "false"}
+            onChange={(value) =>
+              updateContent({ showProductCount: value === "true" })
+            }
+          />
+          <Select
+            label="Image ratio"
+            options={[
+              { label: "Square", value: "square" },
+              { label: "Portrait", value: "portrait" },
+              { label: "Landscape", value: "landscape" },
+            ]}
+            value={selectedElement.content?.imageRatio || "square"}
+            onChange={(value) => updateContent({ imageRatio: value })}
+          />
+        </>
       );
 
     case "html":

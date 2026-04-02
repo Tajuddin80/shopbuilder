@@ -234,62 +234,16 @@
 
 {% schema %}
 {
-  "name": "t:after_before_slider.name",
+  "name": "After Before Slider",
   "max_blocks": 4,
   "settings": [
     {
-      "type": "color_scheme",
-      "id": "color_scheme",
-      "label": "t:labels.color_scheme",
-      "default": "scheme-2"
-    },
-    {
-      "type": "range",
-      "label": "t:labels.padding_top",
-      "id": "padding_top",
-      "step": 8,
-      "min": 8,
-      "max": 160,
-      "unit": "px",
-      "default": 48
-    },
-    {
-      "type": "range",
-      "label": "t:labels.padding_bottom",
-      "id": "padding_bottom",
-      "step": 8,
-      "min": 8,
-      "max": 160,
-      "unit": "px",
-      "default": 48
-    },
-    {
-      "type": "range",
-      "label": "t:labels.margin_top",
-      "id": "margin_top",
-      "step": 8,
-      "min": 0,
-      "max": 160,
-      "unit": "px",
-      "default": 8
-    },
-    {
-      "type": "range",
-      "label": "t:labels.margin_bottom",
-      "id": "margin_bottom",
-      "step": 8,
-      "min": 0,
-      "max": 160,
-      "unit": "px",
-      "default": 8
-    },
-    {
       "type": "header",
-      "content": "t:after_before_slider.content.slider_settings"
+      "content": "Slider Settings"
     },
     {
       "type": "range",
-      "label": "t:after_before_slider.labels.slider_width",
+      "label": "Slider Width",
       "id": "slider_width",
       "step": 0.1,
       "min": 0.4,
@@ -299,7 +253,7 @@
     },
     {
       "type": "range",
-      "label": "t:after_before_slider.labels.desktop_slider_height",
+      "label": "Desktop Slider Height",
       "id": "AB_img_height",
       "step": 10,
       "min": 450,
@@ -309,7 +263,7 @@
     },
     {
       "type": "range",
-      "label": "t:after_before_slider.labels.tab_slider_height",
+      "label": "Tablet Slider Height",
       "id": "AB_img_height_tab",
       "step": 10,
       "min": 200,
@@ -319,7 +273,7 @@
     },
     {
       "type": "range",
-      "label": "t:after_before_slider.labels.mobail_slider_height",
+      "label": "Mobile Slider Height",
       "id": "AB_img_height_mobail",
       "step": 10,
       "min": 200,
@@ -329,67 +283,67 @@
     },
     {
       "type": "header",
-      "content": "t:after_before_slider.content.image_settings"
+      "content": "Image Settings"
     },
     {
       "type": "select",
       "id": "sv_position",
-      "label": "t:after_before_slider.labels.position",
+      "label": "Position",
       "default": "0",
       "visible_if": "{{ section.settings.show_right_content }}",
       "options": [
         {
           "value": "0",
-          "label": "t:after_before_slider.options.left"
+          "label": "Left"
         },
         {
           "value": "1",
-          "label": "t:after_before_slider.options.right"
+          "label": "Right"
         }
       ]
     },
     {
       "type": "image_picker",
       "id": "before_image",
-      "label": "t:after_before_slider.labels.before_image"
+      "label": "Before Image"
     },
     {
       "type": "image_picker",
       "id": "after_image",
-      "label": "t:after_before_slider.labels.after_image"
+      "label": "After Image"
     },
     {
       "type": "header",
-      "content": "t:after_before_slider.content.content_area"
+      "content": "Content Area"
     },
     {
       "type": "checkbox",
       "id": "show_right_content",
-      "label": "t:after_before_slider.labels.hide_show_content",
+      "label": "Show Content",
       "default": true
     },
     {
       "type": "header",
-      "content": "t:after_before_slider.content.content_settings",
+      "content": "Content Settings",
       "visible_if": "{{ section.settings.show_right_content }}"
     },
     {
       "type": "select",
       "id": "content_layout",
-      "label": "t:after_before_slider.labels.content_layout",
+      "label": "Content Layout",
       "default": "center",
       "options": [
         {
           "value": "start",
-          "label": "t:after_before_slider.options.start"
+          "label": "Start"
         },
         {
           "value": "center",
-          "label": "t:after_before_slider.options.center"
+          "label": "Center"
         },
         {
           "value": "end",
-          "label": "t:after_before_slider.options.end"
+          "label": "End"
         }
       ],
       "visible_if": "{{ section.settings.show_right_content }}"
@@ -397,20 +351,20 @@
     {
       "type": "select",
       "id": "text_align",
-      "label": "t:after_before_slider.labels.text_align",
+      "label": "Text Align",
       "default": "center",
       "options": [
         {
           "value": "left",
-          "label": "t:after_before_slider.options.left"
+          "label": "Left"
         },
         {
           "value": "center",
-          "label": "t:after_before_slider.options.center"
+          "label": "Center"
         },
         {
           "value": "right",
-          "label": "t:after_before_slider.options.right"
+          "label": "Right"
         }
       ],
       "visible_if": "{{ section.settings.show_right_content }}"
@@ -418,163 +372,163 @@
     {
       "type": "text",
       "id": "subtitle_text",
-      "label": "t:after_before_slider.labels.subheading",
-      "default": "t:after_before_slider.defaults.new_feature",
+      "label": "Subheading",
+      "default": "New Feature",
       "visible_if": "{{ section.settings.show_right_content }}"
     },
     {
       "type": "text",
       "id": "header_text",
-      "label": "t:labels.heading",
-      "default": "t:after_before_slider.defaults.effortless_elegance_the_perfect_look",
+      "label": "Heading",
+      "default": "Effortless Elegance — The Perfect Look",
       "visible_if": "{{ section.settings.show_right_content }}"
     },
     {
       "type": "select",
       "id": "heading_tag_size",
-      "label": "t:labels.heading_size",
+      "label": "Heading Size",
       "default": "h3",
       "visible_if": "{{ section.settings.show_right_content }}",
       "options": [
         {
           "value": "h2",
-          "label": "t:after_before_slider.options.x_large"
+          "label": "X Large"
         },
         {
           "value": "h3",
-          "label": "t:after_before_slider.options.large"
+          "label": "Large"
         },
         {
           "value": "h4",
-          "label": "t:after_before_slider.options.medium"
+          "label": "Medium"
         },
         {
           "value": "h5",
-          "label": "t:after_before_slider.options.small"
+          "label": "Small"
         },
         {
           "value": "h6",
-          "label": "t:after_before_slider.options.x_small"
+          "label": "X Small"
         }
       ]
     },
     {
       "type": "richtext",
       "id": "paragraphs_text",
-      "label": "t:after_before_slider.labels.paragraphs",
-      "default": "t:after_before_slider.defaults.p_our_latest_collection_of_fashion_item_offers_something_special_for_every_occasion_our_festival_and_casual_outfit_ensures_you_are_prepared_for_anything_p",
+      "label": "Paragraphs",
+      "default": "<p>Our latest collection of fashion items offers something special for every occasion. Our festival and casual outfits ensure you are prepared for anything.</p>",
       "visible_if": "{{ section.settings.show_right_content }}"
     },
     {
       "type": "text",
       "id": "btn_text",
-      "label": "t:after_before_slider.labels.button",
-      "default": "t:text_defaults.shop_now",
+      "label": "Button Text",
+      "default": "Shop Now",
       "visible_if": "{{ section.settings.show_right_content }}"
     },
     {
       "type": "url",
       "id": "btn_link",
-      "label": "t:after_before_slider.labels.button_link",
+      "label": "Button Link",
       "visible_if": "{{ section.settings.show_right_content }}"
     },
     {
       "type": "header",
-      "content": "t:after_before_slider.content.button_settings",
+      "content": "Button Settings",
       "visible_if": "{{ section.settings.show_right_content }}"
     },
     {
       "type": "select",
       "id": "button_style",
-      "label": "t:after_before_slider.labels.type",
+      "label": "Button Type",
       "default": "sv-btn",
       "visible_if": "{{ section.settings.show_right_content }}",
       "options": [
         {
           "value": "sv-btn",
-          "label": "t:after_before_slider.options.primary"
+          "label": "Primary"
         },
         {
           "value": "sv-btn--sv-btn-outline",
-          "label": "t:after_before_slider.options.primary_outline"
+          "label": "Primary Outline"
         },
         {
           "value": "sv-btn--sv-btn-secondary",
-          "label": "t:after_before_slider.options.secondary"
+          "label": "Secondary"
         },
         {
           "value": "sv-btn--sv-btn-secondary--sv-btn-outline",
-          "label": "t:after_before_slider.options.secondary_outline"
+          "label": "Secondary Outline"
         },
         {
           "value": "sv-btn--sv-btn-underline",
-          "label": "t:after_before_slider.options.underline"
+          "label": "Underline"
         }
       ]
     },
     {
       "type": "select",
       "id": "button_animation",
-      "label": "t:labels.hover_style",
+      "label": "Hover Style",
       "default": "",
       "visible_if": "{{ section.settings.show_right_content }}",
       "options": [
         {
           "value": "",
-          "label": "t:options.normal"
+          "label": "Normal"
         },
         {
           "value": "sv-slide--sv-left",
-          "label": "t:after_before_slider.options.left"
+          "label": "Left"
         },
         {
           "value": "sv-slide--sv-right",
-          "label": "t:after_before_slider.options.right"
+          "label": "Right"
         },
         {
           "value": "sv-slide--sv-top",
-          "label": "t:after_before_slider.options.top"
+          "label": "Top"
         },
         {
           "value": "sv-slide--sv-bottom",
-          "label": "t:after_before_slider.options.bottom"
+          "label": "Bottom"
         }
       ]
     },
     {
       "type": "select",
       "id": "button_size",
-      "label": "t:labels.size",
+      "label": "Button Size",
       "default": "",
       "visible_if": "{{ section.settings.show_right_content }}",
       "options": [
         {
           "value": "",
-          "label": "t:options.normal"
+          "label": "Normal"
         },
         {
           "value": "sv-btn-xl",
-          "label": "t:after_before_slider.options.x_large_2"
+          "label": "X Large"
         },
         {
           "value": "sv-btn-l",
-          "label": "t:after_before_slider.options.large"
+          "label": "Large"
         },
         {
           "value": "sv-btn-m",
-          "label": "t:after_before_slider.options.medium"
+          "label": "Medium"
         },
         {
           "value": "sv-btn-s",
-          "label": "t:after_before_slider.options.small"
+          "label": "Small"
         },
         {
           "value": "sv-btn-xs",
-          "label": "t:after_before_slider.options.x_small_2"
+          "label": "X Small"
         },
         {
           "value": "sv-full",
-          "label": "t:after_before_slider.options.full"
+          "label": "Full"
         }
       ]
     }
@@ -582,7 +536,7 @@
   "blocks": [],
   "presets": [
     {
-      "name": "t:after_before_slider.presets.after_before_slider",
+      "name": "After Before Slider",
       "blocks": []
     }
   ]

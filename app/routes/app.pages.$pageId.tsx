@@ -2,6 +2,7 @@ import type { LoaderFunctionArgs } from "react-router";
 import { useLoaderData } from "react-router";
 import { authenticate } from "~/lib/shopify.server";
 import { db } from "~/lib/db.server";
+import { ensureShopRecord } from "~/lib/shop.server";
 import { useEffect } from "react";
 import { useBuilderStore } from "~/store/builderStore";
 import { BuilderToolbar } from "~/components/builder/BuilderToolbar";
@@ -12,10 +13,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const { session } = await authenticate.admin(request);
   const { pageId } = params as { pageId: string };
 
-  const shop = await db.shop.findUnique({
-    where: { shopDomain: session.shop },
-  });
-  if (!shop) throw new Response("Shop not found", { status: 404 });
+  const shop = await ensureShopRecord(session);
 
   if (pageId === "new") {
     return { page: null, shop };

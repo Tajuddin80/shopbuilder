@@ -43,26 +43,28 @@ export function SliderElement({ element }: ElementComponentProps) {
           </div>
         </div>
       </div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          gap: 6,
-          padding: 12,
-        }}
-      >
-        {slides.slice(0, 5).map((_: unknown, index: number) => (
-          <div
-            key={index}
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: 999,
-              background: index === 0 ? "#ffffff" : "rgba(255,255,255,0.35)",
-            }}
-          />
-        ))}
-      </div>
+      {content.showDots === false ? null : (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            gap: 6,
+            padding: 12,
+          }}
+        >
+          {slides.slice(0, 5).map((_: unknown, index: number) => (
+            <div
+              key={index}
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 999,
+                background: index === 0 ? "#ffffff" : "rgba(255,255,255,0.35)",
+              }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

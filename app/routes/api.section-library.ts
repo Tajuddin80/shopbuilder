@@ -1,33 +1,46 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { authenticate } from "~/lib/shopify.server";
-import { db } from "~/lib/db.server";
+import { ensureShopRecord } from "~/lib/shop.server";
 import { pageContentSchema } from "~/lib/pageSchema";
 import {
   listLocalThemeSections,
   listSavedSections,
   saveBuilderSectionToTheme,
+  syncSavedSectionsToThemes,
   syncLocalThemeSections,
 } from "~/lib/themeSectionLibrary.server";
 
+const SHOPBUILDER_APP_BLOCK_HANDLE = "shopbuilder-saved-section";
+
+function buildThemeEditorUrl(shopDomain: string, template = "index") {
+  const url = new URL(`https://${shopDomain}/admin/themes/current/editor`);
+  url.searchParams.set("template", template);
+  return url.toString();
+}
+
+function buildThemeAppBlockEditorUrl(shopDomain: string, template = "index") {
+  const apiKey = process.env.SHOPIFY_API_KEY || "";
+  if (!apiKey) return null;
+
+  const url = new URL(`https://${shopDomain}/admin/themes/current/editor`);
+  url.searchParams.set("template", template);
+  url.searchParams.set(
+    "addAppBlockId",
+    `${apiKey}/${SHOPBUILDER_APP_BLOCK_HANDLE}`,
+  );
+  url.searchParams.set("target", "newAppsSection");
+  return url.toString();
+}
+
 export async function loader({ request }: LoaderFunctionArgs) {
   const { session, admin } = await authenticate.admin(request);
-  const shop = await db.shop.findUnique({
-    where: { shopDomain: session.shop },
-  });
-
-  if (!shop) {
-    return new Response(
-      JSON.stringify({ savedSections: [], themeSections: [] }),
-      {
-        headers: { "Content-Type": "application/json" },
-      },
-    );
-  }
+  const shop = await ensureShopRecord(session);
 
   try {
     await syncLocalThemeSections(admin);
+    await syncSavedSectionsToThemes(admin, shop.id);
   } catch (error) {
-    console.error("Failed to auto-sync local theme sections", error);
+    console.error("Failed to auto-sync theme sections", error);
   }
 
   const [savedSections, themeSections] = await Promise.all([
@@ -42,22 +55,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export async function action({ request }: ActionFunctionArgs) {
   const { session, admin } = await authenticate.admin(request);
-  const shop = await db.shop.findUnique({
-    where: { shopDomain: session.shop },
-  });
-
-  if (!shop) {
-    return new Response(JSON.stringify({ error: "Shop not found" }), {
-      status: 404,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
+  const shop = await ensureShopRecord(session);
 
   const body = await request.json();
   const intent = String(body.intent || "");
 
   if (intent === "sync_local_theme_sections") {
-    const themeSections = await syncLocalThemeSections(admin);
+    await syncLocalThemeSections(admin);
+    await syncSavedSectionsToThemes(admin, shop.id);
+    const themeSections = await listLocalThemeSections();
     const savedSections = await listSavedSections(shop.id);
     return new Response(JSON.stringify({ savedSections, themeSections }), {
       headers: { "Content-Type": "application/json" },
@@ -89,7 +95,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
     const section = parsed.data.sections[0];
     const name = String(body.name || section.name || "Saved Section");
-    await saveBuilderSectionToTheme({
+    const savedSection = await saveBuilderSectionToTheme({
       admin,
       shopId: shop.id,
       section,
@@ -97,14 +103,27 @@ export async function action({ request }: ActionFunctionArgs) {
       containerWidth: Number(body.containerWidth || 1200),
     });
 
+    await syncSavedSectionsToThemes(admin, shop.id);
+
     const [savedSections, themeSections] = await Promise.all([
       listSavedSections(shop.id),
       listLocalThemeSections(),
     ]);
 
-    return new Response(JSON.stringify({ savedSections, themeSections }), {
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        savedSections,
+        themeSections,
+        savedHandle: savedSection.handle,
+        savedName: name,
+        addedToHomepage: savedSection.addedToHomepage,
+        themeEditorUrl: buildThemeEditorUrl(session.shop),
+        appBlockEditorUrl: buildThemeAppBlockEditorUrl(session.shop),
+      }),
+      {
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   }
 
   if (intent === "save_page_sections") {
@@ -143,6 +162,7 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     await syncLocalThemeSections(admin);
+    await syncSavedSectionsToThemes(admin, shop.id);
 
     const [savedSections, themeSections] = await Promise.all([
       listSavedSections(shop.id),

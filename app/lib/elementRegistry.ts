@@ -1,10 +1,16 @@
 export const ELEMENT_REGISTRY = [
-  // Basic
   {
     type: "heading",
     label: "Heading",
     category: "basic",
     icon: "H1",
+    keywords: [
+      "title",
+      "headline",
+      "hero heading",
+      "section title",
+      "footer heading",
+    ],
     defaultContent: {
       text: "Your Heading",
       tag: "h2",
@@ -21,9 +27,18 @@ export const ELEMENT_REGISTRY = [
   },
   {
     type: "text",
-    label: "Text",
+    label: "Rich Text",
     category: "basic",
-    icon: "T",
+    icon: "TXT",
+    keywords: [
+      "paragraph",
+      "body text",
+      "copy",
+      "content",
+      "description",
+      "blog excerpt",
+      "announcement copy",
+    ],
     defaultContent: {
       html: "<p>Enter your text here. Click to edit.</p>",
       fontSize: { desktop: 16, tablet: 16, mobile: 15 },
@@ -35,8 +50,16 @@ export const ELEMENT_REGISTRY = [
   {
     type: "image",
     label: "Image",
-    category: "basic",
+    category: "media",
     icon: "IMG",
+    keywords: [
+      "image block",
+      "image banner",
+      "photo",
+      "gallery image",
+      "collage",
+      "brand image",
+    ],
     defaultContent: {
       src: "https://placehold.co/800x400",
       alt: "",
@@ -48,9 +71,17 @@ export const ELEMENT_REGISTRY = [
   },
   {
     type: "button",
-    label: "Button",
+    label: "Button / CTA",
     category: "basic",
-    icon: "BTN",
+    icon: "CTA",
+    keywords: [
+      "call to action",
+      "buy now",
+      "shop now",
+      "quick add",
+      "add to cart button",
+      "link button",
+    ],
     defaultContent: {
       text: "Click Here",
       url: "#",
@@ -70,7 +101,8 @@ export const ELEMENT_REGISTRY = [
     type: "divider",
     label: "Divider",
     category: "basic",
-    icon: "—",
+    icon: "---",
+    keywords: ["separator", "rule", "line", "section break"],
     defaultContent: {
       style: "solid",
       color: "#e5e7eb",
@@ -83,14 +115,22 @@ export const ELEMENT_REGISTRY = [
     type: "spacer",
     label: "Spacer",
     category: "basic",
-    icon: "↕",
+    icon: "SPC",
+    keywords: ["gap", "empty space", "padding spacer"],
     defaultContent: { height: { desktop: 40, tablet: 30, mobile: 20 } },
   },
   {
     type: "icon",
-    label: "Icon",
+    label: "Icon / Badge",
     category: "basic",
-    icon: "★",
+    icon: "ICO",
+    keywords: [
+      "feature icon",
+      "checkmark",
+      "trust icon",
+      "badge",
+      "tag",
+    ],
     defaultContent: {
       icon: "star",
       size: { desktop: 40, tablet: 36, mobile: 32 },
@@ -98,12 +138,45 @@ export const ELEMENT_REGISTRY = [
       linkUrl: "",
     },
   },
-  // Media
+  {
+    type: "social_icons",
+    label: "Social / Payment Icons",
+    category: "basic",
+    icon: "SOC",
+    keywords: [
+      "social links",
+      "social media",
+      "payment icons",
+      "trust badges",
+      "secure checkout",
+      "press logos",
+      "footer social",
+    ],
+    defaultContent: {
+      icons: [
+        { platform: "instagram", url: "#" },
+        { platform: "facebook", url: "#" },
+      ],
+      iconSize: 24,
+      iconColor: "#111",
+      iconStyle: "logo",
+      gap: 12,
+      alignment: "center",
+    },
+  },
   {
     type: "video",
-    label: "Video",
+    label: "Video / Background Video",
     category: "media",
-    icon: "▶",
+    icon: "VID",
+    keywords: [
+      "video banner",
+      "hero video",
+      "youtube",
+      "vimeo",
+      "mp4",
+      "media block",
+    ],
     defaultContent: {
       videoType: "youtube",
       url: "",
@@ -117,9 +190,16 @@ export const ELEMENT_REGISTRY = [
   },
   {
     type: "map",
-    label: "Map",
+    label: "Map / Store Locator",
     category: "media",
     icon: "MAP",
+    keywords: [
+      "google map",
+      "location",
+      "address",
+      "contact map",
+      "store locator",
+    ],
     defaultContent: {
       query: "New York, NY",
       zoom: 12,
@@ -128,9 +208,17 @@ export const ELEMENT_REGISTRY = [
   },
   {
     type: "slider",
-    label: "Slider",
+    label: "Slideshow / Carousel",
     category: "media",
-    icon: "◀▶",
+    icon: "SLD",
+    keywords: [
+      "hero slider",
+      "slideshow",
+      "carousel",
+      "banner slider",
+      "image slider",
+      "gallery slider",
+    ],
     defaultContent: {
       slides: [],
       autoplay: true,
@@ -141,12 +229,19 @@ export const ELEMENT_REGISTRY = [
       transition: "slide",
     },
   },
-  // Commerce
   {
     type: "product_card",
-    label: "Product Card",
+    label: "Featured Product",
     category: "commerce",
-    icon: "🛍",
+    icon: "PROD",
+    keywords: [
+      "product showcase",
+      "single product",
+      "buy now",
+      "quick add",
+      "product block",
+      "product media",
+    ],
     defaultContent: {
       productHandle: "",
       showPrice: true,
@@ -160,9 +255,18 @@ export const ELEMENT_REGISTRY = [
   },
   {
     type: "product_grid",
-    label: "Product Grid",
+    label: "Product Grid / Recommendations",
     category: "commerce",
-    icon: "⊞",
+    icon: "GRID",
+    keywords: [
+      "featured products",
+      "product recommendations",
+      "also bought",
+      "related products",
+      "recently viewed",
+      "cross sell",
+      "upsell",
+    ],
     defaultContent: {
       source: "collection",
       collectionId: "",
@@ -176,9 +280,16 @@ export const ELEMENT_REGISTRY = [
   },
   {
     type: "collection",
-    label: "Collection",
+    label: "Featured Collection / Grid",
     category: "commerce",
-    icon: "🗂",
+    icon: "COL",
+    keywords: [
+      "collection list",
+      "collection grid",
+      "featured collection",
+      "collection banner",
+      "shop categories",
+    ],
     defaultContent: {
       collectionHandle: "",
       columns: { desktop: 3, tablet: 2, mobile: 1 },
@@ -188,12 +299,19 @@ export const ELEMENT_REGISTRY = [
       limit: 6,
     },
   },
-  // Social proof
   {
     type: "testimonial",
-    label: "Testimonials",
+    label: "Testimonials / Reviews",
     category: "social",
-    icon: "❝",
+    icon: "REV",
+    keywords: [
+      "social proof",
+      "customer reviews",
+      "ratings",
+      "ugc",
+      "press quotes",
+      "review cards",
+    ],
     defaultContent: {
       items: [
         {
@@ -211,12 +329,17 @@ export const ELEMENT_REGISTRY = [
       showAvatar: false,
     },
   },
-  // Interactive
   {
     type: "countdown",
-    label: "Countdown",
+    label: "Countdown Timer",
     category: "interactive",
-    icon: "⏱",
+    icon: "TMR",
+    keywords: [
+      "promo timer",
+      "sale timer",
+      "launch countdown",
+      "announcement timer",
+    ],
     defaultContent: {
       targetDate: new Date(Date.now() + 7 * 86400000).toISOString(),
       timezone: "UTC",
@@ -236,7 +359,13 @@ export const ELEMENT_REGISTRY = [
     type: "accordion",
     label: "FAQ / Accordion",
     category: "interactive",
-    icon: "≡",
+    icon: "FAQ",
+    keywords: [
+      "questions",
+      "collapsible content",
+      "support answers",
+      "help center",
+    ],
     defaultContent: {
       items: [
         {
@@ -255,9 +384,16 @@ export const ELEMENT_REGISTRY = [
   },
   {
     type: "tabs",
-    label: "Tabs",
+    label: "Tabs / Product Tabs",
     category: "interactive",
-    icon: "⊟",
+    icon: "TAB",
+    keywords: [
+      "tabbed content",
+      "product tabs",
+      "description tabs",
+      "shipping tabs",
+      "review tabs",
+    ],
     defaultContent: {
       tabs: [
         { id: "1", label: "Tab 1", content: "<p>Content for Tab 1</p>" },
@@ -271,9 +407,17 @@ export const ELEMENT_REGISTRY = [
   },
   {
     type: "form",
-    label: "Form",
+    label: "Contact / Newsletter Form",
     category: "interactive",
-    icon: "✉",
+    icon: "FORM",
+    keywords: [
+      "email signup",
+      "newsletter",
+      "contact form",
+      "lead capture",
+      "popup form",
+      "discount form",
+    ],
     defaultContent: {
       fields: [
         {
@@ -302,37 +446,47 @@ export const ELEMENT_REGISTRY = [
       buttonTextColor: "#fff",
     },
   },
-  // Advanced
   {
     type: "html",
-    label: "HTML",
+    label: "HTML / Embed",
     category: "advanced",
-    icon: "</>",
+    icon: "HTML",
+    keywords: [
+      "custom html",
+      "embed code",
+      "ugc feed",
+      "instagram feed",
+      "review widget",
+      "judge.me",
+      "yotpo",
+      "loox",
+      "chat widget",
+      "cookie banner",
+    ],
     defaultContent: { html: "<!-- Custom HTML -->" },
   },
   {
     type: "liquid",
-    label: "Liquid",
+    label: "Custom Liquid / App Block",
     category: "advanced",
-    icon: "{%}",
+    icon: "LIQ",
+    keywords: [
+      "theme section",
+      "search bar",
+      "predictive search",
+      "breadcrumbs",
+      "mega menu",
+      "sticky header",
+      "wishlist",
+      "compare products",
+      "language switcher",
+      "currency switcher",
+      "cart drawer",
+      "loyalty",
+      "rewards",
+      "app block",
+    ],
     defaultContent: { liquid: "{% comment %} Custom Liquid {% endcomment %}" },
-  },
-  {
-    type: "social_icons",
-    label: "Social Icons",
-    category: "basic",
-    icon: "◎",
-    defaultContent: {
-      icons: [
-        { platform: "instagram", url: "#" },
-        { platform: "facebook", url: "#" },
-      ],
-      iconSize: 24,
-      iconColor: "#111",
-      iconStyle: "logo",
-      gap: 12,
-      alignment: "center",
-    },
   },
 ] as const;
 
