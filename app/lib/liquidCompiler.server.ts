@@ -1,4 +1,5 @@
 import type { Column, Element, PageContent, Section } from "./pageSchema";
+import { richTextMarkup } from "./richText";
 
 function getYoutubeEmbedUrl(url: string) {
   const match =
@@ -329,12 +330,14 @@ function compileElement(el: Element): string {
     }
     case "text": {
       const c = (el as any).content;
-      inner = `<div style="font-size:${bp(c.fontSize)}px; color:${c.color}; font-family:${c.fontFamily}; line-height:${c.lineHeight};">${c.html}</div>`;
+      inner = `<div style="font-size:${bp(c.fontSize)}px; color:${c.color}; font-family:${c.fontFamily}; line-height:${c.lineHeight};">${richTextMarkup(c, "Text content")}</div>`;
       break;
     }
     case "image": {
       const c = (el as any).content;
-      const img = `<img src="${c.src}" alt="${c.alt}" loading="${c.loading}" style="width:100%; object-fit:${c.objectFit}; display:block;"/>`;
+      const widthPx = bp(c.widthPx);
+      const heightPx = bp(c.heightPx);
+      const img = `<img src="${c.src}" alt="${c.alt}" loading="${c.loading}" style="width:${widthPx ? `${widthPx}px` : "100%"}; max-width:100%; height:${heightPx ? `${heightPx}px` : "auto"}; object-fit:${c.objectFit}; display:block;"/>`;
       inner = c.linkUrl
         ? `<a href="${c.linkUrl}" target="${c.linkTarget || "_self"}">${img}</a>`
         : img;

@@ -1,7 +1,24 @@
-import { getElementContent, type ElementComponentProps } from "./shared";
+import {
+  getElementContent,
+  PreviewCard,
+  type ElementComponentProps,
+} from "./shared";
 
 export function LiquidElement({ element }: ElementComponentProps) {
   const content = getElementContent(element);
+  const liquid = String(content.liquid || "").trim();
+
+  if (!liquid || /\{%\s*comment\s*%\}/.test(liquid)) {
+    return (
+      <PreviewCard background="#0f172a" border="1px solid rgba(148, 163, 184, 0.26)">
+        <div style={{ color: "#e2e8f0", fontSize: 12, lineHeight: 1.7 }}>
+          Try <code>{"{{ shop.name }}"}</code> or{" "}
+          <code>{"{% render 'snippet-name' %}"}</code>.
+        </div>
+      </PreviewCard>
+    );
+  }
+
   return (
     <pre
       style={{
@@ -16,7 +33,7 @@ export function LiquidElement({ element }: ElementComponentProps) {
         overflowX: "auto",
       }}
     >
-      {content.liquid || "{% comment %} Custom Liquid {% endcomment %}"}
+      {liquid}
     </pre>
   );
 }

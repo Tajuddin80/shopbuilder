@@ -6,6 +6,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
+import { getPreviewAnimationStyle } from "~/lib/animationPreview";
 import type { Column, ResponsiveValue, Section } from "~/lib/pageSchema";
 import { useBuilderStore } from "~/store/builderStore";
 import { DraggableCanvasElement } from "./DraggableCanvasElement";
@@ -171,6 +172,7 @@ export function DroppableSection({ section }: { section: Section }) {
     activeBreakpoint,
     null,
   );
+  const animationStyle = getPreviewAnimationStyle(section.settings.animation);
 
   return (
     <div
@@ -190,17 +192,20 @@ export function DroppableSection({ section }: { section: Section }) {
         <style>{`#${previewId}{${section.settings.customCss}}`}</style>
       ) : null}
 
-      {showSectionChrome ? (
-        <div
-          style={{
-            position: "absolute",
-            top: 14,
-            right: 14,
-            zIndex: 3,
-            display: "flex",
-            gap: 8,
-          }}
-        >
+      <div
+        style={{
+          position: "absolute",
+          top: 14,
+          right: 14,
+          zIndex: 3,
+          display: "flex",
+          gap: 8,
+          opacity: showSectionChrome ? 1 : 0,
+          transform: showSectionChrome ? "translateY(0)" : "translateY(-4px)",
+          pointerEvents: showSectionChrome ? "auto" : "none",
+          transition: "opacity 0.16s ease, transform 0.16s ease",
+        }}
+      >
           <button
             type="button"
             {...attributes}
@@ -243,12 +248,12 @@ export function DroppableSection({ section }: { section: Section }) {
           >
             &#10005;
           </button>
-        </div>
-      ) : null}
+      </div>
 
       <div
         id={previewId}
         style={{
+          ...animationStyle,
           borderRadius: section.settings.borderRadius ?? 24,
           border: isSelectedSection
             ? "1px solid #60a5fa"

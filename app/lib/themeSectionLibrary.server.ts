@@ -24,6 +24,7 @@ const LOCAL_THEME_SECTION_DIR = path.join(process.cwd(), "theme-sections");
 const APP_BLOCK_INSTANCE_LIMIT = 50;
 const NATIVE_THEME_SYNC_ENABLED =
   process.env.SHOPBUILDER_ENABLE_NATIVE_THEME_SYNC === "true";
+export const nativeThemeSyncEnabled = NATIVE_THEME_SYNC_ENABLED;
 
 function escapeHtml(value: unknown) {
   return String(value ?? "")

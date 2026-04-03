@@ -7,7 +7,6 @@ import {
   responsiveValue,
 } from "./builderDefaults";
 import type { Element, Section } from "./pageSchema";
-import { createThemeSectionReferenceSection } from "./sectionLibrary";
 
 export interface SectionPreset {
   id: string;
@@ -1331,40 +1330,92 @@ export const SECTION_PRESETS: SectionPreset[] = [
     id: "before-after-slider",
     name: "Before & After Slider",
     description:
-      "Native theme section reference for a before-and-after image comparison block.",
+      "Two-image comparison section with before and after visuals.",
     accent: "#0f172a",
     keywords: ["before after", "comparison slider", "image comparison"],
     preview: {
       background:
         "linear-gradient(135deg, #0f172a 0%, #334155 52%, #64748b 100%)",
-      eyebrow: "Native Liquid",
-      headline: "Use the installed before-and-after Shopify section",
-      supportingText: "References the synced theme section file",
+      eyebrow: "Product story",
+      headline: "Show a clear before and after moment",
+      supportingText: "Editable comparison section",
     },
     create: () =>
-      createThemeSectionReferenceSection({
-        handle: "after-before-slider",
+      createDefaultSection({
         name: "Before & After Slider",
+        settings: {
+          ...defaultSectionSettings(),
+          backgroundColor: responsiveValue("#f8fafc"),
+          paddingTop: responsiveValue(56),
+          paddingBottom: responsiveValue(56),
+        },
+        columns: [
+          createDefaultColumn({
+            width: responsiveValue(50),
+            elements: [
+              makeText("<p><strong>Before</strong></p>", {
+                marginBottom: responsiveValue(12),
+              }),
+              makeImage("https://placehold.co/900x900/e2e8f0/0f172a?text=Before", "Before image"),
+            ],
+          }),
+          createDefaultColumn({
+            width: responsiveValue(50),
+            elements: [
+              makeText("<p><strong>After</strong></p>", {
+                marginBottom: responsiveValue(12),
+              }),
+              makeImage("https://placehold.co/900x900/cffafe/0f172a?text=After", "After image"),
+            ],
+          }),
+        ],
       }),
   },
   {
     id: "feature-callout-native",
     name: "Feature Callout",
     description:
-      "Starter native Liquid section reference for a concise feature or promo callout.",
+      "Concise feature or promo callout with heading, copy, and action.",
     accent: "#0f766e",
-    keywords: ["feature callout", "promo callout", "native theme section"],
+    keywords: ["feature callout", "promo callout", "announcement"],
     preview: {
       background:
         "linear-gradient(135deg, #0f766e 0%, #14b8a6 48%, #5eead4 100%)",
-      eyebrow: "Native Liquid",
-      headline: "Drop in the synced feature callout theme section",
-      supportingText: "Editable native Liquid section reference",
+      eyebrow: "Promotion",
+      headline: "Highlight one strong product benefit",
+      supportingText: "Editable callout section",
     },
     create: () =>
-      createThemeSectionReferenceSection({
-        handle: "shopbuilder-feature-callout",
+      createDefaultSection({
         name: "Feature Callout",
+        settings: {
+          ...defaultSectionSettings(),
+          backgroundColor: responsiveValue("#ecfdf5"),
+          paddingTop: responsiveValue(56),
+          paddingBottom: responsiveValue(56),
+        },
+        columns: [
+          createDefaultColumn({
+            elements: [
+              makeText("<p>New release</p>", {
+                marginBottom: responsiveValue(12),
+              }, {
+                fontSize: { desktop: 14, tablet: 14, mobile: 13 },
+                color: "#0f766e",
+              }),
+              makeHeading("Built to convert more first-time shoppers.", {}, {
+                fontSize: { desktop: 44, tablet: 36, mobile: 28 },
+              }),
+              makeText(
+                "<p>Use this section for a feature launch, limited offer, or short product story with one focused CTA.</p>",
+              ),
+              makeButton("Shop now", "/collections/all", {}, {
+                backgroundColor: "#0f172a",
+                borderColor: "#0f172a",
+              }),
+            ],
+          }),
+        ],
       }),
   },
   {

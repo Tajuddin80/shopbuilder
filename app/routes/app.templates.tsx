@@ -6,6 +6,7 @@ import { ensureShopRecord } from "~/lib/shop.server";
 import {
   listLocalThemeSections,
   listSavedSections,
+  nativeThemeSyncEnabled,
   syncLocalThemeSections,
   syncSavedSectionsToThemes,
 } from "~/lib/themeSectionLibrary.server";
@@ -20,12 +21,6 @@ import {
 } from "@shopify/polaris";
 import { SavedSectionPreview } from "~/components/dashboard/SavedSectionPreview";
 import { ThemeSectionStorefrontPreview } from "~/components/dashboard/ThemeSectionStorefrontPreview";
-
-function buildStorefrontSectionPreviewUrl(shopDomain: string, handle: string) {
-  const url = new URL(`https://${shopDomain}/apps/shopbuilder/section`);
-  url.searchParams.set("handle", handle);
-  return url.toString();
-}
 
 function buildThemeAppBlockEditorUrl(shopDomain: string, template = "index") {
   const apiKey = process.env.SHOPIFY_API_KEY || "";
@@ -63,13 +58,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
     templates,
     savedSections,
     themeSections,
-    shopDomain: session.shop,
     appBlockEditorUrl: buildThemeAppBlockEditorUrl(session.shop),
+    nativeThemeSyncEnabled,
   };
 }
 
 export default function Templates() {
-  const { templates, savedSections, themeSections, shopDomain, appBlockEditorUrl } =
+  const { templates, savedSections, themeSections, appBlockEditorUrl, nativeThemeSyncEnabled } =
     useLoaderData() as Awaited<ReturnType<typeof loader>>;
   const navigate = useNavigate();
 
@@ -123,8 +118,9 @@ export default function Templates() {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
                     gap: 12,
+                    maxWidth: 840,
                   }}
                 >
                   {templates.map((template: any) => (
@@ -279,11 +275,19 @@ export default function Templates() {
 
               <div style={{ color: "#5c6a79", fontSize: 13, lineHeight: 1.7 }}>
                 Save your own Shopify section files in <code>theme-sections/</code>.
-                The cards below show a live preview so you can see what each
-                local Liquid section looks like while building. Direct theme-file
+                The cards below show a preview card so you can quickly identify
+                each local Liquid section while building. Direct theme-file
                 syncing is available only when this app has Shopify&apos;s
                 protected theme file access.
               </div>
+
+              {!nativeThemeSyncEnabled ? (
+                <div style={{ color: "#5c6a79", fontSize: 13, lineHeight: 1.7 }}>
+                  Local Liquid sections are shown as developer previews only on
+                  this store because Shopify has not granted native theme-file
+                  access to this app.
+                </div>
+              ) : null}
 
               {themeSections.length === 0 ? (
                 <Text as="p" tone="subdued">
@@ -309,10 +313,8 @@ export default function Templates() {
                     >
                       <div style={{ marginBottom: 12 }}>
                         <ThemeSectionStorefrontPreview
-                          src={buildStorefrontSectionPreviewUrl(
-                            shopDomain,
-                            item.handle,
-                          )}
+                          handle={item.handle}
+                          fileName={item.fileName}
                           title={`${item.name} preview`}
                         />
                       </div>

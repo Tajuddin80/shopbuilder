@@ -27,7 +27,7 @@ export const ELEMENT_REGISTRY = [
   },
   {
     type: "text",
-    label: "Rich Text",
+    label: "Rich Text / Paragraph",
     category: "basic",
     icon: "TXT",
     keywords: [
@@ -40,11 +40,39 @@ export const ELEMENT_REGISTRY = [
       "announcement copy",
     ],
     defaultContent: {
-      html: "<p>Enter your text here. Click to edit.</p>",
+      text: "Enter your text here.",
       fontSize: { desktop: 16, tablet: 16, mobile: 15 },
       color: "#444",
       fontFamily: "inherit",
       lineHeight: 1.6,
+    },
+  },
+  {
+    type: "text",
+    label: "Simple Text",
+    category: "basic",
+    icon: "TXT",
+    keywords: ["paragraph", "simple text", "copy block", "description"],
+    defaultContent: {
+      text: "Add a short paragraph to explain this section.",
+      fontSize: { desktop: 16, tablet: 16, mobile: 15 },
+      color: "#475569",
+      fontFamily: "inherit",
+      lineHeight: 1.6,
+    },
+  },
+  {
+    type: "text",
+    label: "Caption",
+    category: "basic",
+    icon: "CAP",
+    keywords: ["caption", "eyebrow", "microcopy", "supporting text"],
+    defaultContent: {
+      text: "Short supporting note",
+      fontSize: { desktop: 13, tablet: 13, mobile: 12 },
+      color: "#64748b",
+      fontFamily: "inherit",
+      lineHeight: 1.5,
     },
   },
   {
@@ -67,6 +95,23 @@ export const ELEMENT_REGISTRY = [
       linkTarget: "_self",
       objectFit: "cover",
       loading: "lazy",
+    },
+  },
+  {
+    type: "image",
+    label: "Logo Image",
+    category: "media",
+    icon: "LOGO",
+    keywords: ["logo", "brand mark", "partner logo", "badge image"],
+    defaultContent: {
+      src: "https://placehold.co/320x120?text=Logo",
+      alt: "Brand logo",
+      linkUrl: "",
+      linkTarget: "_self",
+      objectFit: "contain",
+      loading: "lazy",
+      widthPx: { desktop: 220, tablet: 180, mobile: 160 },
+      heightPx: { desktop: 120, tablet: 100, mobile: 88 },
     },
   },
   {
@@ -177,6 +222,23 @@ export const ELEMENT_REGISTRY = [
       "mp4",
       "media block",
     ],
+    defaultContent: {
+      videoType: "youtube",
+      url: "",
+      autoplay: false,
+      loop: false,
+      muted: false,
+      controls: true,
+      aspectRatio: "16:9",
+      posterImage: "",
+    },
+  },
+  {
+    type: "video",
+    label: "Video Embed",
+    category: "media",
+    icon: "PLAY",
+    keywords: ["video embed", "youtube embed", "vimeo embed", "promo video"],
     defaultContent: {
       videoType: "youtube",
       url: "",
@@ -463,7 +525,7 @@ export const ELEMENT_REGISTRY = [
       "chat widget",
       "cookie banner",
     ],
-    defaultContent: { html: "<!-- Custom HTML -->" },
+    defaultContent: { html: "" },
   },
   {
     type: "liquid",
@@ -486,7 +548,7 @@ export const ELEMENT_REGISTRY = [
       "rewards",
       "app block",
     ],
-    defaultContent: { liquid: "{% comment %} Custom Liquid {% endcomment %}" },
+    defaultContent: { liquid: "" },
   },
 ] as const;
 

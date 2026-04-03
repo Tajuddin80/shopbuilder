@@ -5,6 +5,7 @@ import { pageContentSchema } from "~/lib/pageSchema";
 import {
   listLocalThemeSections,
   listSavedSections,
+  nativeThemeSyncEnabled,
   saveBuilderSectionToTheme,
   syncSavedSectionsToThemes,
   syncLocalThemeSections,
@@ -48,9 +49,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
     listLocalThemeSections(),
   ]);
 
-  return new Response(JSON.stringify({ savedSections, themeSections }), {
-    headers: { "Content-Type": "application/json" },
-  });
+  return new Response(
+    JSON.stringify({ savedSections, themeSections, nativeThemeSyncEnabled }),
+    {
+      headers: { "Content-Type": "application/json" },
+    },
+  );
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -65,9 +69,16 @@ export async function action({ request }: ActionFunctionArgs) {
       await syncSavedSectionsToThemes(admin, shop.id);
       const themeSections = await listLocalThemeSections();
       const savedSections = await listSavedSections(shop.id);
-      return new Response(JSON.stringify({ savedSections, themeSections }), {
-        headers: { "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          savedSections,
+          themeSections,
+          nativeThemeSyncEnabled,
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+        },
+      );
     }
 
     if (intent === "save_builder_section") {
@@ -182,9 +193,16 @@ export async function action({ request }: ActionFunctionArgs) {
         listLocalThemeSections(),
       ]);
 
-      return new Response(JSON.stringify({ savedSections, themeSections }), {
-        headers: { "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          savedSections,
+          themeSections,
+          nativeThemeSyncEnabled,
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+        },
+      );
     }
 
     return new Response(JSON.stringify({ error: "Unsupported intent" }), {

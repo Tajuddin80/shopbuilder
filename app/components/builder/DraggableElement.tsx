@@ -1,6 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useState, type ReactNode } from "react";
+import { getPreviewAnimationStyle } from "~/lib/animationPreview";
 import type { BaseElementSettings, ResponsiveValue } from "~/lib/pageSchema";
 import { useBuilderStore } from "~/store/builderStore";
 import { ResizeHandle } from "./ResizeHandle";
@@ -95,6 +96,7 @@ export function DraggableElement({
     getResponsiveValue(settings.display, activeBreakpoint, "block") !== "none";
   const showChrome = !previewMode && (isHovered || isSelected);
   const previewId = `canvas-block-${id}`;
+  const animationStyle = getPreviewAnimationStyle(settings.animation);
 
   return (
     <div
@@ -125,6 +127,7 @@ export function DraggableElement({
           position: "relative",
           width,
           maxWidth,
+          ...animationStyle,
           padding: `${paddingTop}px ${paddingRight}px ${paddingBottom}px ${paddingLeft}px`,
           border:
             settings.borderWidth > 0
@@ -142,17 +145,20 @@ export function DraggableElement({
             "box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease",
         }}
       >
-        {showChrome ? (
-          <div
-            style={{
-              position: "absolute",
-              top: 10,
-              right: 10,
-              zIndex: 2,
-              display: "flex",
-              gap: 8,
-            }}
-          >
+        <div
+          style={{
+            position: "absolute",
+            top: 10,
+            right: 10,
+            zIndex: 2,
+            display: "flex",
+            gap: 8,
+            opacity: showChrome ? 1 : 0,
+            transform: showChrome ? "translateY(0)" : "translateY(-4px)",
+            pointerEvents: showChrome ? "auto" : "none",
+            transition: "opacity 0.16s ease, transform 0.16s ease",
+          }}
+        >
             <button
               type="button"
               onClick={(event) => event.stopPropagation()}
@@ -196,8 +202,7 @@ export function DraggableElement({
             >
               &#10005;
             </button>
-          </div>
-        ) : null}
+        </div>
 
         <div
           style={{

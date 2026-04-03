@@ -1,4 +1,8 @@
 import { CanvasElementPreview } from "~/components/builder/CanvasElementPreview";
+import {
+  PREVIEW_ANIMATION_STYLES,
+  getPreviewAnimationStyle,
+} from "~/lib/animationPreview";
 import type { ResponsiveValue, Section } from "~/lib/pageSchema";
 
 function getResponsiveValue<T>(
@@ -46,10 +50,12 @@ function StaticElementPreview({
       }}
     >
       {settings.customCss ? <style>{`#${previewId}{${settings.customCss}}`}</style> : null}
+      <style>{PREVIEW_ANIMATION_STYLES}</style>
 
       <div
         id={previewId}
         style={{
+          ...getPreviewAnimationStyle(settings.animation),
           width,
           maxWidth,
           padding: `${getResponsiveValue(settings.paddingTop, 0)}px ${getResponsiveValue(settings.paddingRight, 0)}px ${getResponsiveValue(settings.paddingBottom, 0)}px ${getResponsiveValue(settings.paddingLeft, 0)}px`,
@@ -89,6 +95,7 @@ export function SavedSectionPreview({
         overflow: "hidden",
       }}
     >
+      <style>{PREVIEW_ANIMATION_STYLES}</style>
       {section.settings.customCss ? (
         <style>{`#${previewId}{${section.settings.customCss}}`}</style>
       ) : null}
@@ -96,6 +103,7 @@ export function SavedSectionPreview({
       <div
         id={previewId}
         style={{
+          ...getPreviewAnimationStyle(section.settings.animation),
           background:
             getResponsiveValue(section.settings.backgroundColor, "#ffffff") || "#ffffff",
           backgroundImage: section.settings.backgroundImage
@@ -133,9 +141,9 @@ export function SavedSectionPreview({
           >
             <div
               style={{
-                display: "flex",
+                display: "grid",
+                gridTemplateColumns: `repeat(${Math.min(section.columns.length, 2)}, minmax(0, 1fr))`,
                 gap: 14,
-                flexWrap: "wrap",
                 alignItems: "stretch",
               }}
             >
@@ -144,7 +152,7 @@ export function SavedSectionPreview({
                   key={column.id}
                   style={{
                     flex: `1 1 ${getResponsiveValue(column.width, 100)}%`,
-                    minWidth: 220,
+                    minWidth: 0,
                     padding: `${getResponsiveValue(column.settings.paddingTop, 0)}px ${getResponsiveValue(column.settings.paddingRight, 10)}px ${getResponsiveValue(column.settings.paddingBottom, 0)}px ${getResponsiveValue(column.settings.paddingLeft, 10)}px`,
                     background: column.settings.backgroundColor || "transparent",
                     borderRadius: 14,

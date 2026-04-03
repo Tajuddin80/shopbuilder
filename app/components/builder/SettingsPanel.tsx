@@ -19,6 +19,7 @@ import { LinkPicker } from "~/components/settings/LinkPicker";
 import { ResponsiveToggle } from "~/components/settings/ResponsiveToggle";
 import { SpacingSettings } from "~/components/settings/SpacingSettings";
 import { TypographySettings } from "~/components/settings/TypographySettings";
+import { richTextToPlainText } from "~/lib/richText";
 import { useBuilderStore } from "~/store/builderStore";
 
 const SECTION_LAYOUT_OPTIONS = [
@@ -1345,11 +1346,15 @@ function renderElementContentControls(
       return (
         <>
           <TextField
-            label="HTML content"
+            label="Text content"
             autoComplete="off"
-            multiline={8}
-            value={selectedElement.content?.html || ""}
-            onChange={(value) => updateContent({ html: value })}
+            multiline={6}
+            value={
+              selectedElement.content?.text ||
+              richTextToPlainText(selectedElement.content?.html || "")
+            }
+            onChange={(value) => updateContent({ text: value, html: "" })}
+            helpText="Press Enter for a new line. Use the HTML / Embed block only when you really need custom markup."
           />
           <TypographySettings
             title="Text Style"
@@ -1495,7 +1500,7 @@ function renderElementContentControls(
       return (
         <>
           <ImagePicker
-            label="Image URL"
+            label="Image"
             value={selectedElement.content?.src || ""}
             onChange={(value) => updateContent({ src: value })}
           />
@@ -1521,6 +1526,52 @@ function renderElementContentControls(
             ]}
             value={selectedElement.content?.objectFit || "cover"}
             onChange={(value) => updateContent({ objectFit: value })}
+          />
+          <TextField
+            label={`Image width (${activeBreakpoint})`}
+            type="number"
+            autoComplete="off"
+            value={(() => {
+              const value = getBreakpointValue<number | null>(
+                selectedElement.content?.widthPx,
+                activeBreakpoint,
+                null,
+              );
+              return value == null ? "" : String(value);
+            })()}
+            onChange={(value) =>
+              updateContent({
+                widthPx: setBreakpointValue(
+                  selectedElement.content?.widthPx,
+                  activeBreakpoint,
+                  value === "" ? null : toNumber(value, 0),
+                ),
+              })
+            }
+            helpText="Leave blank to make the image fill the block width."
+          />
+          <TextField
+            label={`Image height (${activeBreakpoint})`}
+            type="number"
+            autoComplete="off"
+            value={(() => {
+              const value = getBreakpointValue<number | null>(
+                selectedElement.content?.heightPx,
+                activeBreakpoint,
+                null,
+              );
+              return value == null ? "" : String(value);
+            })()}
+            onChange={(value) =>
+              updateContent({
+                heightPx: setBreakpointValue(
+                  selectedElement.content?.heightPx,
+                  activeBreakpoint,
+                  value === "" ? null : toNumber(value, 0),
+                ),
+              })
+            }
+            helpText="Set a fixed height if you want a tighter crop."
           />
         </>
       );
@@ -2169,24 +2220,26 @@ function renderElementContentControls(
     case "html":
       return (
         <TextField
-          label="Custom HTML"
+          label="Custom HTML / embed code"
           autoComplete="off"
           multiline={8}
           value={selectedElement.content?.html || ""}
           onChange={(value) => updateContent({ html: value })}
-          helpText="HTML is rendered live in the canvas, so inline styles will show here."
+          placeholder={'<iframe src="https://example.com/embed"></iframe>'}
+          helpText="Examples: newsletter forms, review widgets, iframe embeds, or third-party scripts."
         />
       );
 
     case "liquid":
       return (
         <TextField
-          label="Liquid code"
+          label="Liquid / theme snippet"
           autoComplete="off"
           multiline={8}
           value={selectedElement.content?.liquid || ""}
           onChange={(value) => updateContent({ liquid: value })}
-          helpText="Paste raw Liquid or a section include tag here."
+          placeholder={"{{ shop.name }}\n{% render 'snippet-name' %}"}
+          helpText="Examples: shop variables, snippet renders, app output, or other Liquid that Shopify can render."
         />
       );
 

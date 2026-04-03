@@ -1,5 +1,8 @@
 import { useDroppable } from "@dnd-kit/core";
 import {
+  PREVIEW_ANIMATION_STYLES,
+} from "~/lib/animationPreview";
+import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
@@ -42,6 +45,7 @@ export function BuilderCanvas() {
         }}
       >
         <PreviewIframe breakpoint={activeBreakpoint}>
+          <style>{PREVIEW_ANIMATION_STYLES}</style>
           <div
             ref={setNodeRef}
             className="pb-canvas"

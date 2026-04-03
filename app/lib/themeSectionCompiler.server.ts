@@ -1,4 +1,5 @@
 import type { Element, Section } from "./pageSchema";
+import { richTextMarkup } from "./richText";
 
 type ResponsiveLike<T> =
   | T
@@ -266,6 +267,10 @@ function buildElementMarkup({
     settings.opacity !== 1 ? `opacity:${settings.opacity};` : "",
     "box-sizing:border-box;",
   ]);
+  const animationMarkup =
+    settings.animation?.type && settings.animation.type !== "none"
+      ? ` data-sb-animation="${escapeAttribute(settings.animation.type)}" data-sb-animation-once="${settings.animation.once ? "true" : "false"}" style="${escapeAttribute(joinStyles([wrapperStyles, `--sb-animation-duration:${settings.animation.duration}ms;`, `--sb-animation-delay:${settings.animation.delay}ms;`]))}"`
+      : ` style="${escapeAttribute(wrapperStyles)}"`;
 
   const contentMarkup = buildElementContent({
     element,
@@ -273,7 +278,7 @@ function buildElementMarkup({
     wrapperId: elementId,
   });
 
-  return `<div id="${elementId}"${customId ? ` data-custom-id="${escapeAttribute(customId)}"` : ""} class="sb-native-element sb-native-element--${sanitizeClassName(element.type)}${customClass ? ` ${escapeAttribute(customClass)}` : ""}" style="${escapeAttribute(wrapperStyles)}">
+  return `<div id="${elementId}"${customId ? ` data-custom-id="${escapeAttribute(customId)}"` : ""} class="sb-native-element sb-native-element--${sanitizeClassName(element.type)}${customClass ? ` ${escapeAttribute(customClass)}` : ""}"${animationMarkup}>
 ${customCss ? `  <style>#${elementId} { ${customCss} }</style>\n` : ""}  ${contentMarkup}
 </div>`;
 }
@@ -325,7 +330,7 @@ function buildElementContent({
           : "",
       ]);
       return `<div style="${escapeAttribute(styles)}">${sanitizeCustomMarkup(
-        content.html || "<p>Text content</p>",
+        richTextMarkup(content, "Text content"),
       )}</div>`;
     }
 
@@ -335,8 +340,10 @@ function buildElementContent({
       const linkUrl = toStringValue(content.linkUrl).trim();
       const objectFit = toStringValue(content.objectFit, "cover");
       const loading = toStringValue(content.loading, "lazy");
+      const widthPx = toNumber(getResponsiveValue(content.widthPx, null), 0);
+      const heightPx = toNumber(getResponsiveValue(content.heightPx, null), 0);
       const imageMarkup = src
-        ? `<img src="${escapeAttribute(src)}" alt="${escapeAttribute(alt)}" loading="${escapeAttribute(loading)}" style="width:100%; display:block; object-fit:${escapeAttribute(objectFit)}; border-radius:${element.settings.borderRadius}px;">`
+        ? `<img src="${escapeAttribute(src)}" alt="${escapeAttribute(alt)}" loading="${escapeAttribute(loading)}" style="width:${widthPx > 0 ? `${widthPx}px` : "100%"}; max-width:100%; height:${heightPx > 0 ? `${heightPx}px` : "auto"}; display:block; object-fit:${escapeAttribute(objectFit)}; border-radius:${element.settings.borderRadius}px;">`
         : `<div style="padding:24px; border:1px dashed #cbd5e1; border-radius:${element.settings.borderRadius}px; text-align:center; color:#64748b;">Add an image in Shop Builder.</div>`;
       return linkUrl
         ? `<a href="${escapeAttribute(linkUrl)}" style="display:block; text-decoration:none;">${imageMarkup}</a>`
@@ -916,6 +923,10 @@ export function buildThemeSectionLiquid({
       ? `background-image:url('${escapeCssUrl(backgroundImage)}'); background-size:${escapeAttribute(section.settings.backgroundSize || "cover")}; background-position:${escapeAttribute(section.settings.backgroundPosition || "center")}; background-repeat:no-repeat;`
       : "",
   ]);
+  const sectionAnimationAttributes =
+    section.settings.animation.type !== "none"
+      ? ` data-sb-animation="${escapeAttribute(section.settings.animation.type)}" data-sb-animation-once="${section.settings.animation.once ? "true" : "false"}" style="${escapeAttribute(joinStyles([sectionRootStyles, `--sb-animation-duration:${section.settings.animation.duration}ms;`, `--sb-animation-delay:${section.settings.animation.delay}ms;`]))}"`
+      : ` style="${escapeAttribute(sectionRootStyles)}"`;
 
   const columnsMarkup = section.columns
     .map((column, columnIndex) => {
@@ -956,7 +967,7 @@ export function buildThemeSectionLiquid({
   const customCss = toStringValue(section.settings.customCss).trim();
 
   return `
-<section id="shopbuilder-section-{{ section.id }}"${customId ? ` data-custom-id="${escapeAttribute(customId)}"` : ""} class="shopbuilder-native-section${customClass ? ` ${escapeAttribute(customClass)}` : ""}" style="${escapeAttribute(sectionRootStyles)}">
+<section id="shopbuilder-section-{{ section.id }}"${customId ? ` data-custom-id="${escapeAttribute(customId)}"` : ""} class="shopbuilder-native-section${customClass ? ` ${escapeAttribute(customClass)}` : ""}"${sectionAnimationAttributes}>
   <div class="sb-native-container" style="max-width:{% if section.settings.sb_full_width %}100%{% else %}{{ section.settings.sb_container_width }}px{% endif %}; margin:0 auto;">
     <div class="sb-native-columns" style="display:flex; flex-wrap:wrap; align-items:stretch;">
       ${columnsMarkup}
@@ -988,6 +999,81 @@ export function buildThemeSectionLiquid({
     display: flex;
   }
 
+  #shopbuilder-section-{{ section.id }} [data-sb-animation],
+  #shopbuilder-section-{{ section.id }}[data-sb-animation] {
+    opacity: 0;
+  }
+
+  #shopbuilder-section-{{ section.id }} [data-sb-animation].sb-is-animated,
+  #shopbuilder-section-{{ section.id }}[data-sb-animation].sb-is-animated {
+    opacity: 1;
+    animation-duration: var(--sb-animation-duration, 600ms);
+    animation-delay: var(--sb-animation-delay, 0ms);
+    animation-fill-mode: both;
+    animation-timing-function: ease;
+    will-change: opacity, transform;
+  }
+
+  #shopbuilder-section-{{ section.id }} [data-sb-animation="fadeIn"].sb-is-animated,
+  #shopbuilder-section-{{ section.id }}[data-sb-animation="fadeIn"].sb-is-animated {
+    animation-name: sb-fade-in;
+  }
+
+  #shopbuilder-section-{{ section.id }} [data-sb-animation="fadeInUp"].sb-is-animated,
+  #shopbuilder-section-{{ section.id }}[data-sb-animation="fadeInUp"].sb-is-animated {
+    animation-name: sb-fade-in-up;
+  }
+
+  #shopbuilder-section-{{ section.id }} [data-sb-animation="fadeInDown"].sb-is-animated,
+  #shopbuilder-section-{{ section.id }}[data-sb-animation="fadeInDown"].sb-is-animated {
+    animation-name: sb-fade-in-down;
+  }
+
+  #shopbuilder-section-{{ section.id }} [data-sb-animation="slideInLeft"].sb-is-animated,
+  #shopbuilder-section-{{ section.id }}[data-sb-animation="slideInLeft"].sb-is-animated {
+    animation-name: sb-slide-in-left;
+  }
+
+  #shopbuilder-section-{{ section.id }} [data-sb-animation="slideInRight"].sb-is-animated,
+  #shopbuilder-section-{{ section.id }}[data-sb-animation="slideInRight"].sb-is-animated {
+    animation-name: sb-slide-in-right;
+  }
+
+  #shopbuilder-section-{{ section.id }} [data-sb-animation="zoomIn"].sb-is-animated,
+  #shopbuilder-section-{{ section.id }}[data-sb-animation="zoomIn"].sb-is-animated {
+    animation-name: sb-zoom-in;
+  }
+
+  @keyframes sb-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes sb-fade-in-up {
+    from { opacity: 0; transform: translate3d(0, 24px, 0); }
+    to { opacity: 1; transform: translate3d(0, 0, 0); }
+  }
+
+  @keyframes sb-fade-in-down {
+    from { opacity: 0; transform: translate3d(0, -24px, 0); }
+    to { opacity: 1; transform: translate3d(0, 0, 0); }
+  }
+
+  @keyframes sb-slide-in-left {
+    from { opacity: 0; transform: translate3d(-32px, 0, 0); }
+    to { opacity: 1; transform: translate3d(0, 0, 0); }
+  }
+
+  @keyframes sb-slide-in-right {
+    from { opacity: 0; transform: translate3d(32px, 0, 0); }
+    to { opacity: 1; transform: translate3d(0, 0, 0); }
+  }
+
+  @keyframes sb-zoom-in {
+    from { opacity: 0; transform: scale3d(0.92, 0.92, 1); }
+    to { opacity: 1; transform: scale3d(1, 1, 1); }
+  }
+
   ${customCss ? `#shopbuilder-section-{{ section.id }} { ${customCss} }` : ""}
 
   @media screen and (max-width: 989px) {
@@ -1015,6 +1101,32 @@ export function buildThemeSectionLiquid({
   (() => {
     const root = document.getElementById("shopbuilder-section-{{ section.id }}");
     if (!root) return;
+    const animatedNodes = [
+      root.matches("[data-sb-animation]") ? root : null,
+      ...Array.from(root.querySelectorAll("[data-sb-animation]")),
+    ].filter(Boolean);
+
+    if (animatedNodes.length) {
+      if (typeof IntersectionObserver !== "function") {
+        animatedNodes.forEach((node) => node.classList.add("sb-is-animated"));
+      } else {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            const node = entry.target;
+            node.classList.add("sb-is-animated");
+            if (node.getAttribute("data-sb-animation-once") !== "false") {
+              observer.unobserve(node);
+            }
+          });
+        },
+        { threshold: 0.12 },
+      );
+
+      animatedNodes.forEach((node) => observer.observe(node));
+      }
+    }
 
     root.querySelectorAll("[data-sb-accordion]").forEach((accordion) => {
       const allowMultiple =

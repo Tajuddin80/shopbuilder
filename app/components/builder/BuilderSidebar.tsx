@@ -32,6 +32,7 @@ export function BuilderSidebar() {
   const [themeSections, setThemeSections] = useState<ThemeSectionLibraryItem[]>(
     [],
   );
+  const [nativeThemeSyncEnabled, setNativeThemeSyncEnabled] = useState(false);
   const [presetQuery, setPresetQuery] = useState("");
   const [isSyncingThemeSections, setIsSyncingThemeSections] = useState(false);
 
@@ -63,6 +64,7 @@ export function BuilderSidebar() {
       if (!active) return;
       setSavedSections(payload.savedSections || []);
       setThemeSections(payload.themeSections || []);
+      setNativeThemeSyncEnabled(payload.nativeThemeSyncEnabled === true);
     }
 
     loadLibrary().catch(() => undefined);
@@ -84,6 +86,7 @@ export function BuilderSidebar() {
       const payload = await response.json();
       setSavedSections(payload.savedSections || []);
       setThemeSections(payload.themeSections || []);
+      setNativeThemeSyncEnabled(payload.nativeThemeSyncEnabled === true);
     } finally {
       setIsSyncingThemeSections(false);
     }
@@ -100,6 +103,14 @@ export function BuilderSidebar() {
   }
 
   function handleAddThemeReference(item: ThemeSectionLibraryItem) {
+    if (!nativeThemeSyncEnabled) {
+      shopify.toast.show(
+        "Local Liquid sections are preview-only on this store. Use saved ShopBuilder sections for storefront content.",
+        { isError: true },
+      );
+      return;
+    }
+
     addSection(
       createThemeSectionReferenceSection({
         handle: item.handle,
@@ -288,7 +299,7 @@ export function BuilderSidebar() {
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <InlineStack align="space-between" blockAlign="center">
                 <Text as="p" fontWeight="semibold">
-                  Native Liquid Sections
+                  Local Liquid Sections
                 </Text>
                 <InlineStack gap="200" blockAlign="center">
                   <Text as="span" tone="subdued">
@@ -310,6 +321,12 @@ export function BuilderSidebar() {
                 <strong> Refresh</strong> button only reloads newly added local
                 files while this app is open.
               </div>
+              {!nativeThemeSyncEnabled ? (
+                <div style={{ fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
+                  Theme-file access is currently off for this store, so these
+                  items stay preview-only.
+                </div>
+              ) : null}
 
               {themeSections.length === 0 ? (
                 <div style={{ fontSize: 13, color: "#64748b" }}>
@@ -324,13 +341,15 @@ export function BuilderSidebar() {
                       key={item.handle}
                       type="button"
                       onClick={() => handleAddThemeReference(item)}
+                      disabled={!nativeThemeSyncEnabled}
                       style={{
                         border: "1px solid #dbe2ea",
                         borderRadius: 12,
                         background: "#ffffff",
                         textAlign: "left",
                         padding: 12,
-                        cursor: "pointer",
+                        cursor: nativeThemeSyncEnabled ? "pointer" : "not-allowed",
+                        opacity: nativeThemeSyncEnabled ? 1 : 0.65,
                       }}
                     >
                       <div style={{ fontWeight: 600, color: "#0f172a" }}>
@@ -339,7 +358,9 @@ export function BuilderSidebar() {
                       <div
                         style={{ marginTop: 4, fontSize: 12, color: "#64748b" }}
                       >
-                        sections/{item.fileName}
+                        {nativeThemeSyncEnabled
+                          ? `sections/${item.fileName}`
+                          : `Preview only: ${item.fileName}`}
                       </div>
                     </button>
                   ))}
@@ -389,7 +410,7 @@ export function BuilderSidebar() {
           <Card>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <Text as="p" fontWeight="semibold">
-                Native Theme Sections
+                Local Theme Sections
               </Text>
               <div style={{ fontSize: 13, color: "#5c6a79", lineHeight: 1.6 }}>
                 Put your own <code>.liquid</code> section files in{" "}
@@ -413,13 +434,15 @@ export function BuilderSidebar() {
                       key={item.handle}
                       type="button"
                       onClick={() => handleAddThemeReference(item)}
+                      disabled={!nativeThemeSyncEnabled}
                       style={{
                         border: "1px solid #dbe2ea",
                         borderRadius: 12,
                         background: "#ffffff",
                         textAlign: "left",
                         padding: 12,
-                        cursor: "pointer",
+                        cursor: nativeThemeSyncEnabled ? "pointer" : "not-allowed",
+                        opacity: nativeThemeSyncEnabled ? 1 : 0.65,
                       }}
                     >
                       <div style={{ fontWeight: 600, color: "#0f172a" }}>
@@ -428,7 +451,9 @@ export function BuilderSidebar() {
                       <div
                         style={{ marginTop: 4, fontSize: 12, color: "#64748b" }}
                       >
-                        sections/{item.fileName}
+                        {nativeThemeSyncEnabled
+                          ? `sections/${item.fileName}`
+                          : `Preview only: ${item.fileName}`}
                       </div>
                     </button>
                   ))}

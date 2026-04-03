@@ -112,7 +112,7 @@ export function createThemeSectionReferenceSection({
               marginBottom: responsiveValue(12),
             },
             content: {
-              html: `<p>This page references the native Shopify theme section <code>${handle}</code>.</p>`,
+              text: `Developer reference for the local theme section "${handle}". This only renders in the live theme when Shopify theme-file access is enabled for the app.`,
               fontSize: { desktop: 16, tablet: 16, mobile: 15 },
               color: "#cbd5e1",
               fontFamily: "inherit",

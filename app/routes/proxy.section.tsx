@@ -6,6 +6,7 @@ import {
   getSavedSectionPickerMarkup,
   getSavedSectionRenderPayload,
   listSavedSectionsForShopDomain,
+  nativeThemeSyncEnabled,
 } from "~/lib/themeSectionLibrary.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -56,7 +57,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     instanceId,
   });
 
-  if (!payload && handle) {
+  if (!payload && handle && nativeThemeSyncEnabled) {
     payload = await getLocalThemeSectionRenderPayload(handle);
   }
 

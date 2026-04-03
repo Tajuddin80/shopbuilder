@@ -1,4 +1,5 @@
-import { TextField } from "@shopify/polaris";
+import { Button, InlineStack, TextField } from "@shopify/polaris";
+import { useRef, useState, type ChangeEvent } from "react";
 
 export function ImagePicker({
   label,
@@ -9,14 +10,62 @@ export function ImagePicker({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setUploadError("Please choose an image file.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setUploadError(null);
+      onChange(String(reader.result || ""));
+    };
+    reader.onerror = () => {
+      setUploadError("The image could not be read.");
+    };
+    reader.readAsDataURL(file);
+    event.currentTarget.value = "";
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <TextField
         label={label}
         autoComplete="off"
         value={value}
-        onChange={onChange}
+        onChange={(nextValue) => {
+          setUploadError(null);
+          onChange(nextValue);
+        }}
         placeholder="https://..."
+        helpText={
+          uploadError ||
+          "Paste an image URL or upload a file for quick editing."
+        }
+      />
+      <InlineStack gap="200" wrap>
+        <Button size="slim" onClick={() => inputRef.current?.click()}>
+          Upload image
+        </Button>
+        {value ? (
+          <Button size="slim" onClick={() => onChange("")}>
+            Clear image
+          </Button>
+        ) : null}
+      </InlineStack>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileChange}
+        style={{ display: "none" }}
       />
       <div
         style={{

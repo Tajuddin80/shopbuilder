@@ -13,18 +13,16 @@ export function ResizeHandle({
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        width: 30,
-        height: 30,
+        width: 18,
+        height: 18,
         borderRadius: 999,
-        border: `1px solid ${active ? "#93c5fd" : "#dbe2ea"}`,
-        background: active ? "#eff6ff" : "#ffffff",
-        color: "#475569",
-        fontSize: 13,
-        letterSpacing: 1,
+        color: active ? "#2563eb" : "#475569",
+        fontSize: 11,
+        letterSpacing: 2,
         userSelect: "none",
       }}
     >
-      ::
+      ...
     </div>
   );
 }

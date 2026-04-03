@@ -26,7 +26,7 @@ export function ElementPicker({
         label="Search blocks"
         labelHidden
         autoComplete="off"
-        placeholder="Search blocks"
+        placeholder="Search blocks like text, image, video"
         value={query}
         onChange={setQuery}
       />

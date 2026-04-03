@@ -3,6 +3,7 @@ import {
   type ElementComponentProps,
   responsiveValue,
 } from "./shared";
+import { richTextMarkup } from "~/lib/richText";
 
 export function TextElement({ element }: ElementComponentProps) {
   const content = getElementContent(element);
@@ -16,7 +17,7 @@ export function TextElement({ element }: ElementComponentProps) {
         lineHeight: content.lineHeight || 1.6,
       }}
       dangerouslySetInnerHTML={{
-        __html: content.html || "<p>Enter your text here. Click to edit.</p>",
+        __html: richTextMarkup(content, "Enter your text here."),
       }}
     />
   );

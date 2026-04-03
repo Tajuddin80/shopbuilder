@@ -1,4 +1,9 @@
-import { TextField } from "@shopify/polaris";
+import { Button, InlineStack, TextField } from "@shopify/polaris";
+
+function getColorInputValue(value: string) {
+  const trimmed = value.trim();
+  return /^#([0-9a-f]{6}|[0-9a-f]{3})$/i.test(trimmed) ? trimmed : "#111111";
+}
 
 export function ColorPicker({
   label,
@@ -18,9 +23,28 @@ export function ColorPicker({
         autoComplete="off"
         value={value}
         onChange={onChange}
+        placeholder="#111111 or transparent"
         helpText={helpText}
       />
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <InlineStack gap="200" blockAlign="center" wrap>
+        <input
+          type="color"
+          aria-label={`${label} color picker`}
+          value={getColorInputValue(value)}
+          onChange={(event) => onChange(event.currentTarget.value)}
+          style={{
+            width: 44,
+            height: 32,
+            padding: 0,
+            borderRadius: 8,
+            border: "1px solid #dbe2ea",
+            background: "#ffffff",
+            cursor: "pointer",
+          }}
+        />
+        <Button size="slim" onClick={() => onChange("transparent")}>
+          Transparent
+        </Button>
         <div
           style={{
             width: 28,
@@ -33,7 +57,7 @@ export function ColorPicker({
         <div style={{ fontSize: 12, color: "#64748b" }}>
           {value || "transparent"}
         </div>
-      </div>
+      </InlineStack>
     </div>
   );
 }
