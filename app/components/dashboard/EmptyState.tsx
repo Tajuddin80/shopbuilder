@@ -55,9 +55,9 @@ export function EmptyState({
 
         <InlineStack gap="200">
           <Button variant="primary" onClick={onCreate}>
-            Create page
+            Create section
           </Button>
-          <Button onClick={onBrowseTemplates}>Browse templates</Button>
+          <Button onClick={onBrowseTemplates}>Browse sections</Button>
         </InlineStack>
       </div>
     </Card>

@@ -19,13 +19,13 @@ export function PageCard({ page, onEdit }: { page: any; onEdit: () => void }) {
         </InlineStack>
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Badge>{page.pageType}</Badge>
+          <Badge>Workspace</Badge>
           <Badge tone="info">{`Updated ${new Date(page.updatedAt).toLocaleDateString()}`}</Badge>
         </div>
 
         <div style={{ fontSize: 13, color: "#5c6a79", lineHeight: 1.6 }}>
-          Open this page to keep refining sections, save them into the theme,
-          and reuse them in future layouts.
+          Open this section workspace to refine the layout, save it into the
+          theme, and reuse it anywhere later.
         </div>
 
         <InlineStack align="space-between" blockAlign="center">
@@ -33,7 +33,7 @@ export function PageCard({ page, onEdit }: { page: any; onEdit: () => void }) {
             ID: {String(page.id).slice(0, 8)}
           </div>
           <Button size="slim" onClick={onEdit}>
-            Edit
+            Open Builder
           </Button>
         </InlineStack>
       </div>

@@ -170,6 +170,8 @@ function buildSectionSchema({
 }) {
   return {
     name: displayName,
+    tag: "section",
+    class: "shopbuilder-saved-section",
     settings: [
       {
         type: "paragraph",
@@ -225,7 +227,7 @@ function buildSectionSchema({
         ),
       },
     ],
-    presets: [{ name: displayName }],
+    presets: [{ name: displayName, category: "ShopBuilder" }],
   };
 }
 

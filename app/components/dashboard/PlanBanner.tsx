@@ -13,8 +13,8 @@ export function PlanBanner({
   const limits = PLAN_LIMITS[plan];
   const pagesLabel =
     limits.maxPages === Infinity
-      ? "Unlimited pages"
-      : `${limits.maxPages} pages`;
+      ? "Unlimited section workspaces"
+      : `${limits.maxPages} section workspaces`;
 
   return (
     <Card>
@@ -40,7 +40,7 @@ export function PlanBanner({
               lineHeight: 1.6,
             }}
           >
-            {pagesLabel}. You currently have {pagesCount} page
+            {pagesLabel}. You currently have {pagesCount} workspace
             {pagesCount === 1 ? "" : "s"} in the builder.
           </div>
         </div>

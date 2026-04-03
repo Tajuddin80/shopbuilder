@@ -7,6 +7,8 @@ import {
   TextField,
 } from "@shopify/polaris";
 import { useState } from "react";
+import { useAppBridge } from "@shopify/app-bridge-react";
+import { appBridgeFetch } from "~/lib/appBridgeFetch";
 import { AnimationSettings as AnimationSettingsControl } from "~/components/settings/AnimationSettings";
 import { BackgroundSettings } from "~/components/settings/BackgroundSettings";
 import { BorderSettings } from "~/components/settings/BorderSettings";
@@ -192,6 +194,7 @@ function setBreakpointValue<T>(
 }
 
 export function SettingsPanel() {
+  const shopify = useAppBridge();
   const {
     settingsPanelOpen,
     pageContent,
@@ -234,7 +237,7 @@ export function SettingsPanel() {
       setSaveStatus(null);
       setThemeEditorUrl(null);
       setAppBlockEditorUrl(null);
-      const response = await fetch("/api/section-library", {
+      const response = await appBridgeFetch(shopify, "/api/section-library", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -246,7 +249,8 @@ export function SettingsPanel() {
       });
 
       if (!response.ok) {
-        setSaveStatus("Could not save the section into the theme.");
+        const payload = await response.json().catch(() => null);
+        setSaveStatus(payload?.error || "Could not save the section.");
         return;
       }
 
@@ -268,10 +272,6 @@ export function SettingsPanel() {
         typeof payload?.savedName === "string" && payload.savedName.trim()
           ? payload.savedName.trim()
           : selectedSection.name;
-      const savedHandle =
-        typeof payload?.savedHandle === "string" && payload.savedHandle.trim()
-          ? payload.savedHandle.trim()
-          : "";
       const addedToHomepage = payload?.addedToHomepage === true;
       const nextThemeEditorUrl =
         typeof payload?.themeEditorUrl === "string" &&
@@ -285,13 +285,14 @@ export function SettingsPanel() {
           : null;
       setThemeEditorUrl(nextThemeEditorUrl);
       setAppBlockEditorUrl(nextAppBlockEditorUrl);
-      setSaveStatus(
-        addedToHomepage
-          ? `Saved as "${savedName}"${savedHandle ? ` (${savedHandle})` : ""} and added to the Home page template. The app-block route is also ready under Theme Customizer -> Add section -> Apps after the ShopBuilder theme extension is deployed.`
-          : savedHandle
-            ? `Saved as "${savedName}" (${savedHandle}). This save is available in the native theme sync now, and in Add section -> Apps after the ShopBuilder theme extension is deployed.`
-            : `Saved as "${savedName}". This save is available in the native theme sync now, and in Add section -> Apps after the ShopBuilder theme extension is deployed.`,
-      );
+      const syncMessage =
+        typeof payload?.syncMessage === "string" && payload.syncMessage.trim()
+          ? payload.syncMessage.trim()
+          : addedToHomepage
+            ? `Saved as "${savedName}" and added to the Home template.`
+            : `Saved as "${savedName}".`;
+
+      setSaveStatus(syncMessage);
     } finally {
       setIsSavingSection(false);
     }
@@ -324,7 +325,7 @@ export function SettingsPanel() {
               }}
             >
               Select a section or block to control layout, styling, custom
-              Liquid, and theme sync.
+              Liquid, and storefront output.
             </div>
           </Card>
         </div>
@@ -379,27 +380,34 @@ export function SettingsPanel() {
                     loading={isSavingSection}
                     onClick={saveSectionToTheme}
                   >
-                    Save To Theme
+                    Save Section
                   </Button>
                 </InlineStack>
 
                 <div
                   style={{ fontSize: 13, color: "#64748b", lineHeight: 1.5 }}
                 >
-                  Saving creates a native <code>sections/*.liquid</code> file in
-                  your Shopify theme library and also attempts to place the
-                  saved section into the homepage template so it appears inside
-                  Theme Customizer immediately. This project now also includes a
-                  theme app extension path for rendering saved sections under{" "}
-                  <code>Add section -&gt; Apps</code> after deployment, and a
-                  new blank ShopBuilder app block will auto-bind to the newest
-                  save the first time it renders.
+                  Save stores this section in ShopBuilder. Then open Theme
+                  Editor and add the <code>ShopBuilder section</code> from
+                  <code> Add section -&gt; Apps</code>, where you can pick this
+                  section by name without typing any handle.
                 </div>
 
                 {saveStatus && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     <div
-                      style={{ fontSize: 13, color: "#0f766e", lineHeight: 1.5 }}
+                      style={{
+                        fontSize: 13,
+                        color:
+                          saveStatus.toLowerCase().includes("could not") ||
+                          saveStatus.toLowerCase().includes("invalid") ||
+                          saveStatus.toLowerCase().includes("rejected") ||
+                          saveStatus.toLowerCase().includes("didn't allow") ||
+                          saveStatus.toLowerCase().includes("denied")
+                            ? "#b91c1c"
+                            : "#0f766e",
+                        lineHeight: 1.5,
+                      }}
                     >
                       {saveStatus}
                     </div>
@@ -418,7 +426,7 @@ export function SettingsPanel() {
                           size="slim"
                           onClick={() => openThemeEditor(appBlockEditorUrl)}
                         >
-                          Open Add Section Apps
+                          Add In Theme Editor
                         </Button>
                       )}
                     </InlineStack>
@@ -1215,8 +1223,8 @@ export function SettingsPanel() {
                     lineHeight: 1.6,
                   }}
                 >
-                  Once a native section exists in the theme, you can reference
-                  it from a Liquid block using:
+                  If you are working with a hand-written theme section file,
+                  you can reference it from a Liquid block using:
                 </div>
                 <pre
                   style={{

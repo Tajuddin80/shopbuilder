@@ -9,16 +9,25 @@ datasource db {
 
 // Shopify session storage (required by @shopify/shopify-app-*)
 model Session {
-  id          String    @id
-  shop        String
-  state       String
-  isOnline    Boolean   @default(false)
-  scope       String?
-  expires     DateTime?
-  accessToken String
-  userId      BigInt?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id                  String    @id
+  shop                String
+  state               String
+  isOnline            Boolean   @default(false)
+  scope               String?
+  expires             DateTime?
+  accessToken         String
+  userId              BigInt?
+  firstName           String?
+  lastName            String?
+  email               String?
+  accountOwner        Boolean?
+  locale              String?
+  collaborator        Boolean?
+  emailVerified       Boolean?
+  refreshToken        String?
+  refreshTokenExpires DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 }
 
 // One record per installed shop

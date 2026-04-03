@@ -26,9 +26,9 @@ export default function Dashboard() {
 
   return (
     <Page
-      title="Your Pages"
+      title="Your Sections"
       primaryAction={{
-        content: "Create new page",
+        content: "Create new section",
         onAction: () => navigate("/app/pages/new"),
       }}
     >

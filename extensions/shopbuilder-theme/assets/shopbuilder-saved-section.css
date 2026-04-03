@@ -8,3 +8,74 @@
   font-size: 14px;
   line-height: 1.6;
 }
+
+.shopbuilder-app-block__picker {
+  padding: 18px 20px;
+  border: 1px solid #dbe2ea;
+  border-radius: 16px;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.shopbuilder-app-block__picker-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.shopbuilder-app-block__picker-text {
+  margin-top: 8px;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.shopbuilder-app-block__picker-list {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.shopbuilder-app-block__picker-option {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #0f172a;
+  text-align: left;
+  cursor: pointer;
+}
+
+.shopbuilder-app-block__picker-option:hover {
+  border-color: #111827;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.shopbuilder-app-block__picker-option:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.shopbuilder-app-block__picker-option-name,
+.shopbuilder-app-block__picker-option-meta {
+  display: block;
+}
+
+.shopbuilder-app-block__picker-option-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.shopbuilder-app-block__picker-option-meta {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.shopbuilder-app-block__picker-status {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.5;
+}

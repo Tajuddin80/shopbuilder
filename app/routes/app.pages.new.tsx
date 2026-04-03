@@ -1,5 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { Form, useActionData, useLoaderData, useNavigate } from "react-router";
+import { Form, redirect, useActionData, useLoaderData } from "react-router";
+import { useState } from "react";
 import { authenticate } from "~/lib/shopify.server";
 import { db } from "~/lib/db.server";
 import { ensureShopRecord } from "~/lib/shop.server";
@@ -32,16 +33,23 @@ export async function loader({ request }: LoaderFunctionArgs) {
 export async function action({ request }: ActionFunctionArgs) {
   const { session } = await authenticate.admin(request);
   const body = await request.formData();
-  const title = String(body.get("title") || "Untitled page");
+  const title =
+    String(body.get("title") || body.get("name") || "Untitled section").trim() ||
+    "Untitled section";
   const templateId = String(body.get("templateId") || "");
-  const handle = String(body.get("handle") || "")
+  const requestedHandle = String(body.get("handle") || "")
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9-]/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
-
-  if (!handle) return { error: "Handle is required" };
+  const generatedHandle = title
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  const handle = requestedHandle || generatedHandle || `section-${Date.now()}`;
 
   const shop = await ensureShopRecord(session);
 
@@ -54,41 +62,45 @@ export async function action({ request }: ActionFunctionArgs) {
       })
     : null;
 
-  const page = await db.page.create({
-    data: {
-      shopId: shop.id,
-      title,
-      handle,
-      pageType: "LANDING",
-      status: "DRAFT",
-      content: (template?.content as any) || {
-        version: "1.0",
-        globalStyles: {
-          backgroundColor: "#ffffff",
-          fontFamily: "sans-serif",
-          maxWidth: 1200,
-          customCss: "",
+  try {
+    const page = await db.page.create({
+      data: {
+        shopId: shop.id,
+        title,
+        handle,
+        pageType: "LANDING",
+        status: "DRAFT",
+        content: (template?.content as any) || {
+          version: "1.0",
+          globalStyles: {
+            backgroundColor: "#ffffff",
+            fontFamily: "sans-serif",
+            maxWidth: 1200,
+            customCss: "",
+          },
+          sections: [],
         },
-        sections: [],
+        templateId: template?.id || null,
       },
-      templateId: template?.id || null,
-    },
-  });
+    });
 
-  return { pageId: page.id };
+    return redirect(`/app/pages/${page.id}`);
+  } catch (error: any) {
+    if (error?.code === "P2002") {
+      return { error: "That handle already exists for this shop." };
+    }
+
+    throw error;
+  }
 }
 
 export default function NewPage() {
   const { template } = useLoaderData() as Awaited<ReturnType<typeof loader>>;
   const actionData = useActionData() as any;
-  const navigate = useNavigate();
-
-  if (actionData?.pageId) {
-    navigate(`/app/pages/${actionData.pageId}`);
-  }
+  const [title, setTitle] = useState(template?.name ? `${template.name}` : "");
 
   return (
-    <Page title="Create new page">
+    <Page title="Create new section">
       <Layout>
         <Layout.Section>
           <Card>
@@ -96,19 +108,25 @@ export default function NewPage() {
               <FormLayout>
                 {template && (
                   <div style={{ color: "#475569", fontSize: 13, lineHeight: 1.6 }}>
-                    Creating a page from the template <strong>{template.name}</strong>.
+                    Creating a section workspace from <strong>{template.name}</strong>.
                   </div>
                 )}
                 {template ? (
                   <input type="hidden" name="templateId" value={template.id} />
                 ) : null}
-                <TextField label="Title" name="title" autoComplete="off" />
-                <TextField label="Handle" name="handle" helpText="e.g. summer-sale" autoComplete="off" />
+                <TextField
+                  label="Section name"
+                  name="name"
+                  autoComplete="off"
+                  value={title}
+                  onChange={setTitle}
+                  helpText="We generate the internal handle automatically."
+                />
                 {actionData?.error && (
                   <div style={{ color: "#d82c0d", fontSize: 13 }}>{actionData.error}</div>
                 )}
                 <Button submit variant="primary">
-                  Create
+                  Open builder
                 </Button>
               </FormLayout>
             </Form>

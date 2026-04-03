@@ -27,6 +27,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     liquidContent: liquid,
     cssContent: css,
     themePageId: page.themePageId,
+    shopDomain: session.shop,
   });
 
   await db.page.update({

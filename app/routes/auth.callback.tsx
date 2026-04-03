@@ -4,7 +4,7 @@ import { ensureShopRecord } from "~/lib/shop.server";
 import { syncLocalThemeSections } from "~/lib/themeSectionLibrary.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const { session, admin } = await authenticate.admin(request);
+  const { session, admin, redirect } = await authenticate.admin(request);
 
   await ensureShopRecord(session);
 
@@ -14,7 +14,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     console.error("Failed to sync local theme sections during install", error);
   }
 
-  return new Response(null, { status: 302, headers: { Location: "/app" } });
+  return redirect("/app");
 }
 
 export default function AuthCallback() {

@@ -6,6 +6,8 @@ import { ensureShopRecord } from "~/lib/shop.server";
 import {
   listLocalThemeSections,
   listSavedSections,
+  syncLocalThemeSections,
+  syncSavedSectionsToThemes,
 } from "~/lib/themeSectionLibrary.server";
 import {
   Badge,
@@ -16,10 +18,36 @@ import {
   Page,
   Text,
 } from "@shopify/polaris";
+import { SavedSectionPreview } from "~/components/dashboard/SavedSectionPreview";
+import { ThemeSectionStorefrontPreview } from "~/components/dashboard/ThemeSectionStorefrontPreview";
+
+function buildStorefrontSectionPreviewUrl(shopDomain: string, handle: string) {
+  const url = new URL(`https://${shopDomain}/apps/shopbuilder/section`);
+  url.searchParams.set("handle", handle);
+  return url.toString();
+}
+
+function buildThemeAppBlockEditorUrl(shopDomain: string, template = "index") {
+  const apiKey = process.env.SHOPIFY_API_KEY || "";
+  if (!apiKey) return null;
+
+  const url = new URL(`https://${shopDomain}/admin/themes/current/editor`);
+  url.searchParams.set("template", template);
+  url.searchParams.set("addAppBlockId", `${apiKey}/shopbuilder-saved-section`);
+  url.searchParams.set("target", "newAppsSection");
+  return url.toString();
+}
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   const shop = await ensureShopRecord(session);
+
+  try {
+    await syncLocalThemeSections(admin);
+    await syncSavedSectionsToThemes(admin, shop.id);
+  } catch (error) {
+    console.error("Failed to sync section library for templates page", error);
+  }
 
   const [templates, savedSections, themeSections] = await Promise.all([
     db.template.findMany({
@@ -31,19 +59,30 @@ export async function loader({ request }: LoaderFunctionArgs) {
     listLocalThemeSections(),
   ]);
 
-  return { templates, savedSections, themeSections };
+  return {
+    templates,
+    savedSections,
+    themeSections,
+    shopDomain: session.shop,
+    appBlockEditorUrl: buildThemeAppBlockEditorUrl(session.shop),
+  };
 }
 
 export default function Templates() {
-  const { templates, savedSections, themeSections } =
+  const { templates, savedSections, themeSections, shopDomain, appBlockEditorUrl } =
     useLoaderData() as Awaited<ReturnType<typeof loader>>;
   const navigate = useNavigate();
+
+  function openThemeEditor(url: string | null) {
+    if (!url || typeof window === "undefined") return;
+    window.open(url, "_top");
+  }
 
   return (
     <Page
       title="Templates & Section Library"
       primaryAction={{
-        content: "Create new page",
+        content: "Create new section",
         onAction: () => navigate("/app/pages/new"),
       }}
     >
@@ -55,11 +94,12 @@ export default function Templates() {
                 Build with saved sections and native Liquid
               </Text>
               <div style={{ color: "#5c6a79", fontSize: 14, lineHeight: 1.7 }}>
-                Public templates can start a full page. Saved builder sections
-                can also start a new page and are already synced as native
-                Shopify sections. Your own hand-written Liquid files should live
-                in <code>theme-sections/</code> so the app can sync them into
-                the active theme.
+                Public templates can start a new builder workspace. Saved
+                builder sections can also start a new workspace and are the
+                supported path for adding ShopBuilder content to your store from
+                <code> Add section -&gt; Apps</code>. Hand-written Liquid files in
+                <code>theme-sections/</code> are shown below as local preview
+                examples for development.
               </div>
             </div>
           </Card>
@@ -120,7 +160,7 @@ export default function Templates() {
                             navigate(`/app/pages/new?templateId=${template.id}`)
                           }
                         >
-                          Use Template
+                          Start From Template
                         </Button>
                       </div>
                     </div>
@@ -142,14 +182,15 @@ export default function Templates() {
               </InlineStack>
 
               <div style={{ color: "#5c6a79", fontSize: 13, lineHeight: 1.6 }}>
-                These come from the builder&apos;s top-right save flow. Each one
-                is reusable in the builder and also available in Shopify theme
-                customization as a native <code>sections/*.liquid</code> asset.
+                Builder sections are collected here automatically when you click
+                <strong> Save</strong> in the editor. Each one can be reopened
+                in the builder and added by name from the ShopBuilder app section
+                inside theme customization.
               </div>
 
               {savedSections.length === 0 ? (
                 <Text as="p" tone="subdued">
-                  Save a section from the builder to see it here.
+                  Open a section in the builder and click Save to see it here.
                 </Text>
               ) : (
                 <div
@@ -169,6 +210,13 @@ export default function Templates() {
                         background: "#ffffff",
                       }}
                     >
+                      <div style={{ marginBottom: 12 }}>
+                        <SavedSectionPreview
+                          section={item.section}
+                          previewKey={`saved-section-${item.id}`}
+                        />
+                      </div>
+
                       <Text as="p" fontWeight="semibold">
                         {item.name}
                       </Text>
@@ -180,7 +228,7 @@ export default function Templates() {
                           lineHeight: 1.6,
                         }}
                       >
-                        Theme handle: <code>{item.handle}</code>
+                        Columns: {item.section.columns.length}
                       </div>
                       <div
                         style={{
@@ -190,16 +238,26 @@ export default function Templates() {
                           lineHeight: 1.6,
                         }}
                       >
-                        Columns: {item.section.columns.length}
+                        Add the <strong>ShopBuilder section</strong> in Theme
+                        Editor, then choose this saved section by name.
                       </div>
                       <div style={{ marginTop: 12 }}>
-                        <Button
-                          onClick={() =>
-                            navigate(`/app/pages/new?templateId=${item.id}`)
-                          }
-                        >
-                          Start Page With This Section
-                        </Button>
+                        <InlineStack gap="200" wrap>
+                          <Button
+                            onClick={() =>
+                              navigate(`/app/pages/new?templateId=${item.id}`)
+                            }
+                          >
+                            Start Builder With This Section
+                          </Button>
+                          {appBlockEditorUrl && (
+                            <Button
+                              onClick={() => openThemeEditor(appBlockEditorUrl)}
+                            >
+                              Add In Theme Editor
+                            </Button>
+                          )}
+                        </InlineStack>
                       </div>
                     </div>
                   ))}
@@ -214,16 +272,17 @@ export default function Templates() {
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <InlineStack align="space-between" blockAlign="center">
                 <Text as="h3" variant="headingMd">
-                  Local Native Liquid Sections
+                  Local Liquid Section Previews
                 </Text>
                 <Badge tone="attention">{String(themeSections.length)}</Badge>
               </InlineStack>
 
               <div style={{ color: "#5c6a79", fontSize: 13, lineHeight: 1.7 }}>
                 Save your own Shopify section files in <code>theme-sections/</code>.
-                After install or sync, merchants can add them directly in theme
-                customization. You can also reference them inside the builder
-                with a Liquid block using <code>{`{% section 'handle' %}`}</code>.
+                The cards below show a live preview so you can see what each
+                local Liquid section looks like while building. Direct theme-file
+                syncing is available only when this app has Shopify&apos;s
+                protected theme file access.
               </div>
 
               {themeSections.length === 0 ? (
@@ -248,6 +307,15 @@ export default function Templates() {
                         background: "#ffffff",
                       }}
                     >
+                      <div style={{ marginBottom: 12 }}>
+                        <ThemeSectionStorefrontPreview
+                          src={buildStorefrontSectionPreviewUrl(
+                            shopDomain,
+                            item.handle,
+                          )}
+                          title={`${item.name} preview`}
+                        />
+                      </div>
                       <Text as="p" fontWeight="semibold">
                         {item.name}
                       </Text>
@@ -269,7 +337,7 @@ export default function Templates() {
                           lineHeight: 1.6,
                         }}
                       >
-                        Handle: <code>{item.handle}</code>
+                        Previewed through ShopBuilder
                       </div>
                     </div>
                   ))}

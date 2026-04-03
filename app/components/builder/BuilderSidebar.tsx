@@ -1,5 +1,7 @@
 import { Button, Card, InlineStack, Tabs, Text, TextField } from "@shopify/polaris";
 import { useEffect, useMemo, useState } from "react";
+import { useAppBridge } from "@shopify/app-bridge-react";
+import { appBridgeFetch } from "~/lib/appBridgeFetch";
 import { ELEMENT_REGISTRY } from "~/lib/elementRegistry";
 import {
   cloneSavedSection,
@@ -14,6 +16,7 @@ import { ElementPicker } from "./ElementPicker";
 import { LayerPanel } from "./LayerPanel";
 
 export function BuilderSidebar() {
+  const shopify = useAppBridge();
   const {
     sidebarTab,
     setSidebarTab,
@@ -54,7 +57,7 @@ export function BuilderSidebar() {
     let active = true;
 
     async function loadLibrary() {
-      const response = await fetch("/api/section-library");
+      const response = await appBridgeFetch(shopify, "/api/section-library");
       if (!response.ok || !active) return;
       const payload = await response.json();
       if (!active) return;
@@ -67,12 +70,12 @@ export function BuilderSidebar() {
     return () => {
       active = false;
     };
-  }, [libraryRefreshNonce]);
+  }, [libraryRefreshNonce, shopify]);
 
   async function syncThemeSections() {
     try {
       setIsSyncingThemeSections(true);
-      const response = await fetch("/api/section-library", {
+      const response = await appBridgeFetch(shopify, "/api/section-library", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ intent: "sync_local_theme_sections" }),
@@ -239,8 +242,9 @@ export function BuilderSidebar() {
                 </Text>
               </InlineStack>
               <div style={{ fontSize: 13, color: "#5c6a79", lineHeight: 1.5 }}>
-                Save any designed section from the right panel, then reuse it
-                here or keep syncing it as a native theme section.
+                Click <strong>Save</strong> in the builder toolbar to refresh
+                this list. Each saved section can be reused here and added from
+                Theme Editor under <strong>Apps</strong>.
               </div>
 
               {savedSections.length === 0 ? (
@@ -271,7 +275,7 @@ export function BuilderSidebar() {
                       <div
                         style={{ marginTop: 4, fontSize: 12, color: "#64748b" }}
                       >
-                        Native theme handle: {item.handle}
+                        Reusable builder section
                       </div>
                     </button>
                   ))}
@@ -295,18 +299,16 @@ export function BuilderSidebar() {
                     onClick={syncThemeSections}
                     loading={isSyncingThemeSections}
                   >
-                    Sync
+                    Refresh
                   </Button>
                 </InlineStack>
               </InlineStack>
               <div style={{ fontSize: 13, color: "#5c6a79", lineHeight: 1.5 }}>
                 Files from <code>theme-sections/</code> also show up here as
-                prebuilt items. Adding one drops an editable Liquid reference
-                section into the canvas, and the same file is synced into
-                Shopify as a native section under <strong>Add section</strong>,
-                not under <strong>Apps</strong>.
-                The <strong>Sync</strong> button is only a developer shortcut
-                when you add new local files while this app is already open.
+                developer Liquid section examples. Adding one drops an editable
+                Liquid reference section into the canvas. The
+                <strong> Refresh</strong> button only reloads newly added local
+                files while this app is open.
               </div>
 
               {themeSections.length === 0 ? (
@@ -391,13 +393,11 @@ export function BuilderSidebar() {
               </Text>
               <div style={{ fontSize: 13, color: "#5c6a79", lineHeight: 1.6 }}>
                 Put your own <code>.liquid</code> section files in{" "}
-                <code>theme-sections/</code>. The app now syncs those files
-                automatically during install, when the library loads, and when a
-                page is saved, so they feel like built-in sections from the
-                start. These same items are also available in the Library tab
-                under <strong>Native Liquid Sections</strong>. If you add a new
-                file while the app is already open, click <strong>Sync</strong>{" "}
-                in the Library tab to pull it in immediately during development.
+                <code>theme-sections/</code>. These are available in ShopBuilder
+                as local Liquid references and previews. If Shopify grants this
+                app protected theme-file access later, the same files can also
+                be pushed into the live theme. For now, use saved ShopBuilder
+                sections for the normal store-facing flow.
               </div>
 
               {themeSections.length === 0 ? (
